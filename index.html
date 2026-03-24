@@ -1226,10 +1226,21 @@ function doAuth() {
     scope: "https://www.googleapis.com/auth/spreadsheets",
     callback: (response) => {
       if (response.error) return;
+
       accessToken = response.access_token;
       alert("Sesión iniciada correctamente");
+
+      // 🔥 ENTRAR A LA APP AUTOMÁTICAMENTE
+      currentRole = "admin";
+
+      const login = document.getElementById("login-screen");
+      if (login) login.style.display = "none";
+
+      const app = document.getElementById("app");
+      if (app) app.style.display = "block";
     }
   });
+
   tokenClient.requestAccessToken();
 }
 
