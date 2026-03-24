@@ -787,6 +787,8 @@ function startApp(role, email) {
 
 function doLogout() {
   currentRole = null;
+  accessToken = null;
+  tokenClient = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('login-email').value = '';
@@ -1129,20 +1131,22 @@ async function saveIndividuo() {
 
   await dbPut('individuos', obj);
 
-// GOOGLE SAVE
-const data = [
-  obj.nombre,
-  obj.cientifico,
-  obj.sectorId,
-  obj.cantidad,
-  obj.estado,
-  obj.accion,
-  obj.obs,
-  obj.lat,
-  obj.lng,
-  new Date().toLocaleString()
-];
-saveToSheets(data);
+  // GOOGLE SHEETS SAVE
+  const sectores = await dbGetAll('sectores');
+  const sectorNombre = (sectores.find(s => s.id === sectorId) || {}).nombre || String(sectorId);
+  const data = [
+    obj.nombre,
+    obj.cientifico || '',
+    sectorNombre,
+    obj.cantidad,
+    obj.estado,
+    accionLabel(obj.accion),
+    obj.obs || '',
+    obj.lat || '',
+    obj.lng || '',
+    new Date().toLocaleString('es-CO')
+  ];
+  saveToSheets(data);
 
   closeModal('individuo-modal');
   showToast('✅ Árbol guardado','ok');
@@ -1221,34 +1225,44 @@ function getGPS() {
 
 // GOOGLE AUTH
 function doAuth() {
+  if (CLIENT_ID === "PEGAR_CLIENT_ID_AQUI") {
+    showToast('Configura CLIENT_ID en el código antes de usar Google login', 'err');
+    return;
+  }
+  if (typeof google === 'undefined' || !google.accounts) {
+    showToast('La librería de Google aún no cargó. Intenta en un momento.', 'err');
+    return;
+  }
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
-    scope: "https://www.googleapis.com/auth/spreadsheets",
-    callback: (response) => {
-      if (response.error) return;
-
-      accessToken = response.access_token;
-      alert("Sesión iniciada correctamente");
-
-      // 🔥 FORZAR LOGIN COMO ADMIN
-      currentRole = "admin";
-
-      // 🔥 SIMULAR CLICK EN BOTÓN INGRESAR
-      const btn = document.querySelector("button[onclick='doLogin()']");
-      if (btn) {
-        btn.click();
+    scope: "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email",
+    callback: async (response) => {
+      if (response.error) {
+        showToast('Error al autenticar con Google: ' + response.error, 'err');
+        return;
       }
+      accessToken = response.access_token;
+      // Obtener email del usuario autenticado
+      let userEmail = 'google-user@google.com';
+      try {
+        const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: 'Bearer ' + accessToken }
+        });
+        const info = await r.json();
+        userEmail = info.email || userEmail;
+      } catch(e) { /* continuar con email genérico */ }
+      // Verificar si el email está en la lista de admins
+      const admins = getCfg('admin_emails', ['admin@guatape.gov.co']);
+      const isAdmin = admins.map(e => e.toLowerCase()).includes(userEmail.toLowerCase());
+      startApp(isAdmin ? 'admin' : 'visitor', userEmail);
+      showToast('✅ Sesión iniciada como ' + userEmail, 'ok');
     }
   });
-
   tokenClient.requestAccessToken();
 }
 
-function saveToSheets(data){
-  if(!accessToken){
-    alert("Primero inicia sesión");
-    return;
-  }
+function saveToSheets(data) {
+  if (!accessToken) return; // silencioso: sin token simplemente no sincroniza con Sheets
   fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Hoja1!A1:append?valueInputOption=RAW`, {
     method: "POST",
     headers: {
@@ -1256,7 +1270,9 @@ function saveToSheets(data){
       "Content-Type": "application/json"
     },
     body: JSON.stringify({ values: [data] })
-  });
+  }).then(r => {
+    if (!r.ok) r.json().then(e => console.warn('Sheets error:', e));
+  }).catch(e => console.warn('Sheets fetch error:', e));
 }
 
 // ══════════════════════════════════════════════
