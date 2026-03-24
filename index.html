@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Inventario Árboles</title>
+
+  <!-- Google Auth -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+
+<body>
+
+<h2>Inventario Árboles</h2>
+
+<button onclick="doAuth()">Iniciar sesión con Google</button>
+<button onclick="saveToSheets()">Guardar en Google Sheets</button>
+
+<script>
+
+let accessToken = null;
+
+const CLIENT_ID = 988747898790-lsugngq33vik7382vuj7dvgpldhd043u.apps.googleusercontent.com;
+const SHEET_ID = "1O1AKPSIXganmfIC7BWqkKr6znrdc9k4LngOI9yTYPII";
+
+const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
+
+let tokenClient;
+
+function doAuth() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (response) => {
+      if (response.error) {
+        alert("Error al autenticar");
+        return;
+      }
+      accessToken = response.access_token;
+      alert("Sesión iniciada correctamente");
+    }
+  });
+
+  tokenClient.requestAccessToken();
+}
+
+function saveToSheets(){
+
+  if(!accessToken){
+    alert("Primero inicia sesión");
+    return;
+  }
+
+  const data = [
+    new Date().toISOString(),
+    "Árbol prueba",
+    "Ceiba",
+    "Bueno",
+    "6.23",
+    "-75.16"
+  ];
+
+  fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Hoja1!A1:append?valueInputOption=RAW`, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + accessToken,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      values: [data]
+    })
+  })
+  .then(res => res.json())
+  .then(res => {
+    console.log(res);
+    alert("Guardado en Google Sheets");
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Error al guardar");
+  });
+}
+
+</script>
+
+</body>
+</html>
