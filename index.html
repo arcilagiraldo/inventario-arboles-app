@@ -747,7 +747,7 @@ function setLoginTab(mode) {
 }
 
 async function doLogin() {
-  const admins = getCfg('admin_emails', ['admin@guatape.gov.co']);
+  const admins = getCfg('admin_emails', ['admin@guatape.gov.co', 'arcilagiraldo@gmail.com']);
   const adminPass = getCfg('admin_pass', 'guatape2025');
   const visitorPass = getCfg('visitor_pass', 'visita2025');
 
@@ -1243,7 +1243,7 @@ function initGoogleClient() {
         const info = await r.json();
         userEmail = info.email || userEmail;
       } catch(e) { /* usar email generico */ }
-      const admins = getCfg('admin_emails', ['admin@guatape.gov.co']);
+      const admins = getCfg('admin_emails', ['admin@guatape.gov.co', 'arcilagiraldo@gmail.com']);
       const isAdmin = admins.map(e => e.toLowerCase()).includes(userEmail.toLowerCase());
       startApp(isAdmin ? 'admin' : 'visitor', userEmail);
       showToast('Sesion iniciada como ' + userEmail, 'ok');
@@ -1312,7 +1312,7 @@ function hideSyncStatus() {
 // ══════════════════════════════════════════════
 function renderConfig() {
   document.getElementById('gs-url').value = getCfg('gs_url','');
-  const emails = getCfg('admin_emails', ['admin@guatape.gov.co']);
+  const emails = getCfg('admin_emails', ['admin@guatape.gov.co', 'arcilagiraldo@gmail.com']);
   document.getElementById('emails-list').innerHTML = emails.map(e=>`
     <div class="email-item">${e} <button class="btn-tiny btn-del" onclick="removeEmail('${e}')">✕</button></div>`).join('');
   document.getElementById('gas-code-block').textContent = getGASCode();
@@ -1338,7 +1338,7 @@ async function testGS() {
 function addAdminEmail() {
   const val = document.getElementById('new-admin-email').value.trim().toLowerCase();
   if (!val || !val.includes('@')) { showToast('Email inválido','err'); return; }
-  const emails = getCfg('admin_emails', ['admin@guatape.gov.co']);
+  const emails = getCfg('admin_emails', ['admin@guatape.gov.co', 'arcilagiraldo@gmail.com']);
   if (!emails.includes(val)) { emails.push(val); setCfg('admin_emails', emails); }
   document.getElementById('new-admin-email').value = '';
   renderConfig();
