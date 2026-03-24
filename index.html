@@ -1230,14 +1230,10 @@ function doAuth() {
       accessToken = response.access_token;
       alert("Sesión iniciada correctamente");
 
-      // 🔥 ENTRAR A LA APP AUTOMÁTICAMENTE
-      currentRole = "admin";
-
-      const login = document.getElementById("login-screen");
-      if (login) login.style.display = "none";
-
-      const app = document.getElementById("app");
-      if (app) app.style.display = "block";
+      // 🔥 USAR TU LOGIN REAL
+      if (typeof doLogin === "function") {
+        doLogin();
+      }
     }
   });
 
