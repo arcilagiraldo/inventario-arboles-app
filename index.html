@@ -1230,9 +1230,13 @@ function doAuth() {
       accessToken = response.access_token;
       alert("Sesión iniciada correctamente");
 
-      // 🔥 USAR TU LOGIN REAL
-      if (typeof doLogin === "function") {
-        doLogin();
+      // 🔥 FORZAR LOGIN COMO ADMIN
+      currentRole = "admin";
+
+      // 🔥 SIMULAR CLICK EN BOTÓN INGRESAR
+      const btn = document.querySelector("button[onclick='doLogin()']");
+      if (btn) {
+        btn.click();
       }
     }
   });
