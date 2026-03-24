@@ -17,19 +17,18 @@
 
 <script>
 
-let accessToken = null;
-
+// VARIABLES (PRIMERO)
 const CLIENT_ID = "988747898790-lsugngq33vik7382vuj7dvgpldhd043u.apps.googleusercontent.com";
 const SHEET_ID = "1O1AKPSIXganmfIC7BWqkKr6znrdc9k4LngOI9yTYPII";
 
-const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
-
+let accessToken = null;
 let tokenClient;
 
+// AUTENTICACIÓN
 function doAuth() {
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
-    scope: SCOPES,
+    scope: "https://www.googleapis.com/auth/spreadsheets",
     callback: (response) => {
       if (response.error) {
         alert("Error al autenticar");
@@ -43,6 +42,7 @@ function doAuth() {
   tokenClient.requestAccessToken();
 }
 
+// GUARDAR EN SHEETS
 function saveToSheets(){
 
   if(!accessToken){
@@ -79,8 +79,4 @@ function saveToSheets(){
     alert("Error al guardar");
   });
 }
-
 </script>
-
-</body>
-</html>
