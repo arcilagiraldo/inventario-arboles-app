@@ -78,6 +78,13 @@ body {
   font-weight: 600; cursor: pointer; transition: background .2s;
 }
 .btn-login:hover { background: var(--verde-oscuro); }
+.btn-login-google {
+  width: 100%; padding: 13px; background: #4285F4;
+  color: white; border: none; border-radius: 8px; font-size: 15px;
+  font-weight: 600; cursor: pointer; transition: background .2s;
+  margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.btn-login-google:hover { background: #3367d6; }
 .login-error { color: var(--rojo); font-size: 13px; margin-top: 8px; display: none; }
 .login-visitor-note { font-size: 12px; color: var(--gris-texto); margin-top: 16px; }
 
@@ -328,27 +335,88 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 .back-btn:hover { color: var(--verde-oscuro); }
 
-/* ── GOOGLE SETUP ── */
+/* ── CONFIG GENERAL ── */
 .config-card {
   background: white; border-radius: var(--radio); padding: 24px;
   box-shadow: var(--sombra); margin-bottom: 16px;
 }
 .config-card h3 { font-family: 'Playfair Display', serif; font-size: 17px; color: var(--verde-oscuro); margin-bottom: 12px; }
 .config-card p { font-size: 13px; color: var(--gris-texto); margin-bottom: 12px; line-height: 1.6; }
+.config-card-label {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  color: var(--gris-texto); text-transform: uppercase; margin-bottom: 16px;
+  border-bottom: 1px solid var(--gris); padding-bottom: 10px;
+}
 .code-block {
   background: #1e1e1e; color: #a8c97f; font-family: monospace; font-size: 12px;
   padding: 14px; border-radius: 8px; overflow-x: auto; margin: 10px 0; line-height: 1.6;
 }
+
+/* ── CONFIG TABS ── */
+.config-tabs {
+  display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 20px;
+  border-bottom: 2px solid var(--gris); padding-bottom: 0;
+}
+.config-tab {
+  padding: 10px 16px; border: none; background: transparent;
+  font-size: 13px; font-weight: 500; color: var(--gris-texto);
+  cursor: pointer; border-bottom: 3px solid transparent;
+  margin-bottom: -2px; border-radius: 6px 6px 0 0; transition: all .2s;
+  white-space: nowrap; font-family: inherit;
+}
+.config-tab:hover:not(.active) { color: var(--negro); background: var(--gris); }
+.config-tab.active { color: var(--verde); border-bottom-color: var(--verde); font-weight: 700; background: transparent; }
+
+/* ── DRIVE STATUS ── */
+.drive-status-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px; font-size: 14px; font-weight: 500;
+}
+.drive-dot {
+  width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+  background: var(--semaforo-amarillo); transition: background .3s;
+}
+.drive-dot.connected { background: var(--semaforo-verde); }
+.drive-dot.disconnected { background: var(--semaforo-amarillo); }
+
+/* ── BOTÓN GOOGLE ── */
+.btn-drive-google {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  width: 100%; padding: 13px 18px; background: #4285F4;
+  color: white; border: none; border-radius: 8px; font-size: 14px;
+  font-weight: 600; cursor: pointer; transition: background .2s;
+  font-family: inherit;
+}
+.btn-drive-google:hover { background: #3367d6; }
+
+/* ── BOTONES EXPORTAR ── */
+.export-btn-row { margin-bottom: 10px; }
+.btn-export {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; padding: 13px 18px; border: none; border-radius: 8px;
+  font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+  transition: opacity .2s, transform .1s; text-align: left; color: white;
+}
+.btn-export:hover { opacity: .88; transform: translateY(-1px); }
+.btn-export:active { transform: translateY(0); }
+.btn-export-blue   { background: #4285F4; }
+.btn-export-green  { background: var(--verde); }
+.btn-export-dark   { background: #3d3d3d; }
+.btn-export-green2 { background: var(--verde-claro); }
+.btn-export-teal   { background: #1a7b8a; }
+.btn-export-desc   { font-size: 11px; opacity: .85; font-weight: 400; margin-top: 2px; }
+.export-result-box { margin-top: 14px; font-size: 13px; min-height: 24px; }
+
+/* ── EMAILS ADMIN ── */
+.emails-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.email-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--gris); border-radius: 8px; font-size: 13px; }
+
+/* ── STEP / APPS SCRIPT ── */
 .step-num {
   display: inline-flex; width: 26px; height: 26px; border-radius: 50%;
   background: var(--verde); color: white; font-weight: 700; font-size: 13px;
   align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0;
 }
-.step-row { display: flex; align-items: flex-start; gap: 0; margin-bottom: 12px; font-size: 13px; }
-
-/* ── EMAILS ADMIN ── */
-.emails-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-.email-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--gris); border-radius: 8px; font-size: 13px; }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 600px) {
@@ -357,6 +425,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   .form-row { grid-template-columns: 1fr; }
   .header-title { font-size: 14px; }
   .sectores-grid { grid-template-columns: 1fr; }
+  .config-tab { padding: 8px 11px; font-size: 12px; }
 }
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -381,7 +450,10 @@ textarea.form-control { resize: vertical; min-height: 80px; }
       <input id="visitor-pass" class="login-input" type="password" placeholder="Clave de visitante">
     </div>
     <button class="btn-login" onclick="doLogin()">Ingresar</button>
-<button class="btn-login" style="margin-top:10px;background:#4285F4;" onclick="doAuth()">Iniciar sesión con Google</button>
+    <button class="btn-login-google" onclick="doAuth()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.88l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Iniciar sesión con Google
+    </button>
     <div class="login-error" id="login-error">Credenciales incorrectas</div>
     <div class="login-visitor-note" id="visitor-note" style="display:none;">Modo solo lectura · Sin edición</div>
   </div>
@@ -486,52 +558,133 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
     <!-- ─ CONFIGURACIÓN ─ -->
     <div id="view-config" style="display:none;">
-      <div class="config-card">
-        <h3>🔗 Sincronización con Google Sheets</h3>
-        <p>Pega la URL de tu Google Apps Script Web App para sincronizar automáticamente el inventario:</p>
-        <div class="form-group">
-          <label>URL del Web App (Apps Script)</label>
-          <input class="form-control" id="gs-url" type="url" placeholder="https://script.google.com/macros/s/…/exec">
-        </div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn-primary" onclick="saveGSUrl()">💾 Guardar URL</button>
-          <button class="btn-secondary" onclick="testGS()">🔌 Probar conexión</button>
-        </div>
-        <div id="gs-test-result" style="margin-top:10px; font-size:13px;"></div>
+
+      <!-- Sub-pestañas -->
+      <div class="config-tabs">
+        <button class="config-tab active" onclick="showConfigTab('drive')"    id="ctab-drive">☁️ Google Drive</button>
+        <button class="config-tab"        onclick="showConfigTab('exportar')" id="ctab-exportar">📤 Exportar</button>
+        <button class="config-tab"        onclick="showConfigTab('admins')"   id="ctab-admins">👥 Administradores</button>
+        <button class="config-tab"        onclick="showConfigTab('seguridad')"id="ctab-seguridad">🔑 Seguridad</button>
+        <button class="config-tab"        onclick="showConfigTab('gas')"      id="ctab-gas">📋 Apps Script</button>
       </div>
 
-      <div class="config-card">
-        <h3>📋 Código para Google Apps Script</h3>
-        <p>Ve a <b>script.google.com</b>, crea un nuevo proyecto y pega este código. Luego impleméntalo como Web App (acceso: Cualquiera):</p>
-        <div class="code-block" id="gas-code-block" style="max-height:220px; overflow-y:auto; font-size:11px; white-space:pre-wrap;"></div>
-        <button class="btn-secondary" style="margin-top:8px;" onclick="copyGASCode()">📋 Copiar código</button>
-      </div>
-
-      <div class="config-card">
-        <h3>👥 Administradores autorizados</h3>
-        <p>Emails que pueden editar el inventario:</p>
-        <div class="emails-list" id="emails-list"></div>
-        <div style="display:flex; gap:8px;">
-          <input class="form-control" id="new-admin-email" type="email" placeholder="nuevo@email.com" style="flex:1;">
-          <button class="btn-primary" onclick="addAdminEmail()">＋ Agregar</button>
-        </div>
-      </div>
-
-      <div class="config-card">
-        <h3>🔑 Cambiar contraseñas</h3>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Nueva clave Admin</label>
-            <input class="form-control" id="new-admin-pass" type="password" placeholder="Nueva contraseña admin">
+      <!-- TAB: DRIVE -->
+      <div id="ctab-view-drive">
+        <div class="config-card">
+          <div class="config-card-label">☁️ GOOGLE DRIVE</div>
+          <div class="drive-status-row">
+            <span class="drive-dot disconnected" id="drive-dot"></span>
+            <span id="drive-status-text">No conectado — inicia sesión para sincronizar</span>
           </div>
-          <div class="form-group">
-            <label>Nueva clave Visitante</label>
-            <input class="form-control" id="new-visitor-pass" type="password" placeholder="Nueva contraseña visitante">
+          <p style="font-size:12px;color:var(--gris-texto);margin-bottom:16px;line-height:1.5;">
+            Editores autorizados: los correos registrados por el administrador pueden editar. Los demás usuarios solo pueden ver los datos.
+          </p>
+          <button class="btn-drive-google" onclick="doAuth()">
+            <svg width="18" height="18" viewBox="0 0 48 48" style="flex-shrink:0"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.88l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            Iniciar sesión con Google
+          </button>
+
+          <div style="margin-top:20px;">
+            <div class="form-group">
+              <label>ID Carpeta Drive (opcional)</label>
+              <input class="form-control" id="drive-folder-id" type="text" placeholder="ID de carpeta de Google Drive">
+              <p style="font-size:11px;color:var(--gris-texto);margin-top:4px;">Si lo dejas vacío, los archivos se guardan en la raíz de tu Drive.</p>
+            </div>
+            <div class="form-group">
+              <label>URL Apps Script (sincronización)</label>
+              <input class="form-control" id="gs-url" type="url" placeholder="https://script.google.com/macros/s/…/exec">
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn-primary" onclick="saveDriveConfig()">💾 Guardar configuración</button>
+              <button class="btn-secondary" onclick="testGS()">🔌 Probar conexión</button>
+            </div>
+            <div id="gs-test-result" style="margin-top:10px;font-size:13px;"></div>
           </div>
         </div>
-        <button class="btn-primary" onclick="savePasswords()">💾 Guardar contraseñas</button>
       </div>
-    </div>
+
+      <!-- TAB: EXPORTAR -->
+      <div id="ctab-view-exportar" style="display:none;">
+        <div class="config-card">
+          <div class="config-card-label">📤 EXPORTAR</div>
+
+          <div class="export-btn-row">
+            <button class="btn-export btn-export-blue" onclick="guardarEnSheets()">
+              <span style="font-size:20px;line-height:1;">☁️</span>
+              <div><div>Guardar en Google Sheets</div><div class="btn-export-desc">Sube todos los datos al spreadsheet configurado</div></div>
+            </button>
+          </div>
+          <div class="export-btn-row">
+            <button class="btn-export btn-export-green" onclick="cargarDatosActualizados()">
+              <span style="font-size:20px;line-height:1;">🔄</span>
+              <div><div>Cargar datos actualizados</div><div class="btn-export-desc">Importa datos desde Google Sheets vía Apps Script</div></div>
+            </button>
+          </div>
+          <div class="export-btn-row">
+            <button class="btn-export btn-export-dark" onclick="guardarExcelDrive()">
+              <span style="font-size:20px;line-height:1;">📊</span>
+              <div><div>También guardar Excel en Drive</div><div class="btn-export-desc">Genera archivo CSV y lo sube a tu Google Drive</div></div>
+            </button>
+          </div>
+          <div class="export-btn-row">
+            <button class="btn-export btn-export-green2" onclick="descargarExcel()">
+              <span style="font-size:20px;line-height:1;">⬇️</span>
+              <div><div>Descargar Excel</div><div class="btn-export-desc">Descarga el inventario como archivo .csv</div></div>
+            </button>
+          </div>
+          <div class="export-btn-row">
+            <button class="btn-export btn-export-teal" onclick="exportarKML()">
+              <span style="font-size:20px;line-height:1;">🌐</span>
+              <div><div>Exportar KML (Google Earth)</div><div class="btn-export-desc">Genera archivo .kml con todos los árboles geolocalizados</div></div>
+            </button>
+          </div>
+
+          <div class="export-result-box" id="export-result"></div>
+        </div>
+      </div>
+
+      <!-- TAB: ADMINISTRADORES -->
+      <div id="ctab-view-admins" style="display:none;">
+        <div class="config-card">
+          <div class="config-card-label">👥 ADMINISTRADORES AUTORIZADOS</div>
+          <p>Emails que pueden editar el inventario:</p>
+          <div class="emails-list" id="emails-list"></div>
+          <div style="display:flex; gap:8px;">
+            <input class="form-control" id="new-admin-email" type="email" placeholder="nuevo@email.com" style="flex:1;">
+            <button class="btn-primary" onclick="addAdminEmail()">＋ Agregar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: SEGURIDAD -->
+      <div id="ctab-view-seguridad" style="display:none;">
+        <div class="config-card">
+          <div class="config-card-label">🔑 CAMBIAR CONTRASEÑAS</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nueva clave Admin</label>
+              <input class="form-control" id="new-admin-pass" type="password" placeholder="Nueva contraseña admin">
+            </div>
+            <div class="form-group">
+              <label>Nueva clave Visitante</label>
+              <input class="form-control" id="new-visitor-pass" type="password" placeholder="Nueva contraseña visitante">
+            </div>
+          </div>
+          <button class="btn-primary" onclick="savePasswords()">💾 Guardar contraseñas</button>
+        </div>
+      </div>
+
+      <!-- TAB: APPS SCRIPT -->
+      <div id="ctab-view-gas" style="display:none;">
+        <div class="config-card">
+          <div class="config-card-label">📋 CÓDIGO PARA GOOGLE APPS SCRIPT</div>
+          <p>Ve a <b>script.google.com</b>, crea un nuevo proyecto y pega este código. Luego impleméntalo como Web App con acceso: <b>Cualquiera</b>.</p>
+          <div class="code-block" id="gas-code-block" style="max-height:320px; overflow-y:auto; font-size:11px; white-space:pre-wrap;"></div>
+          <button class="btn-secondary" style="margin-top:8px;" onclick="copyGASCode()">📋 Copiar código</button>
+        </div>
+      </div>
+
+    </div><!-- /view-config -->
 
   </div><!-- /main -->
 </div><!-- /app -->
@@ -603,7 +756,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
       </div>
       <div class="form-group">
         <label>Fotos</label>
-        <input type="file" id="ind-fotos" accept="image/*" multiple style="font-size:13px; margin-bottom:6px;">
+        <input type="file" id="ind-fotos" accept="image/*" multiple style="font-size:13px;">
         <div class="foto-preview-grid" id="foto-preview-grid"></div>
       </div>
     </div>
@@ -625,16 +778,16 @@ textarea.form-control { resize: vertical; min-height: 80px; }
       <input type="hidden" id="sec-id">
       <div class="form-group">
         <label>Nombre del Sector *</label>
-        <input class="form-control" id="sec-nombre" placeholder="ej. Parque Principal">
+        <input class="form-control" id="sec-nombre" placeholder="ej. Parque Central">
       </div>
       <div class="form-row">
         <div class="form-group">
           <label>Área (m²)</label>
-          <input class="form-control" id="sec-area" type="text" placeholder="ej. 421,51">
+          <input class="form-control" id="sec-area" type="text" placeholder="ej. 1.200">
         </div>
         <div class="form-group">
-          <label>Ubicación / Dirección</label>
-          <input class="form-control" id="sec-ubicacion" placeholder="ej. Calle 30-31 con Carrera 30">
+          <label>Ubicación</label>
+          <input class="form-control" id="sec-ubicacion" placeholder="ej. Calle 30 con Carrera 20">
         </div>
       </div>
       <div class="form-group">
@@ -668,14 +821,16 @@ const DB_NAME = 'guatape_arboles';
 const DB_VER  = 1;
 let db, mapaLeaflet = null;
 let currentRole = null;
+
 // GOOGLE CONFIG
 const CLIENT_ID = "988747898790-tlb1j75qs538nm25nmter81e2jpbh44k.apps.googleusercontent.com";
-const SHEET_ID = "1O1AKPSIXganmfIC7BWqkKr6znrdc9k4LngOI9yTYPII";
+const SHEET_ID  = "1O1AKPSIXganmfIC7BWqkKr6znrdc9k4LngOI9yTYPII";
 let accessToken = null;
-let tokenClient;
+let tokenClient = null;
+let googleUserEmail = null;
 
-let pendingFotos = []; // base64 array for current edit
-let currentEditFotos = []; // existing fotos for edit
+let pendingFotos     = [];
+let currentEditFotos = [];
 
 // CONFIG stored in localStorage
 function getCfg(k, def) {
@@ -709,28 +864,28 @@ function initDB() {
 
 function dbGetAll(store) {
   return new Promise((res, rej) => {
-    const tx = db.transaction(store, 'readonly');
+    const tx  = db.transaction(store, 'readonly');
     const req = tx.objectStore(store).getAll();
     req.onsuccess = () => res(req.result);
-    req.onerror = e => rej(e);
+    req.onerror   = e => rej(e);
   });
 }
 
 function dbPut(store, obj) {
   return new Promise((res, rej) => {
-    const tx = db.transaction(store, 'readwrite');
+    const tx  = db.transaction(store, 'readwrite');
     const req = tx.objectStore(store).put(obj);
     req.onsuccess = () => res(req.result);
-    req.onerror = e => rej(e);
+    req.onerror   = e => rej(e);
   });
 }
 
 function dbDelete(store, id) {
   return new Promise((res, rej) => {
-    const tx = db.transaction(store, 'readwrite');
+    const tx  = db.transaction(store, 'readwrite');
     const req = tx.objectStore(store).delete(id);
     req.onsuccess = () => res();
-    req.onerror = e => rej(e);
+    req.onerror   = e => rej(e);
   });
 }
 
@@ -740,15 +895,17 @@ function dbDelete(store, id) {
 let loginMode = 'admin';
 function setLoginTab(mode) {
   loginMode = mode;
-  document.querySelectorAll('.login-tab').forEach((t,i) => t.classList.toggle('active', (i===0 && mode==='admin') || (i===1 && mode==='visitor')));
-  document.getElementById('login-admin-fields').style.display = mode === 'admin' ? '' : 'none';
+  document.querySelectorAll('.login-tab').forEach((t,i) =>
+    t.classList.toggle('active', (i===0 && mode==='admin') || (i===1 && mode==='visitor'))
+  );
+  document.getElementById('login-admin-fields').style.display  = mode === 'admin'   ? '' : 'none';
   document.getElementById('login-visitor-fields').style.display = mode === 'visitor' ? '' : 'none';
-  document.getElementById('visitor-note').style.display = mode === 'visitor' ? '' : 'none';
+  document.getElementById('visitor-note').style.display         = mode === 'visitor' ? '' : 'none';
 }
 
 async function doLogin() {
-  const admins = getCfg('admin_emails', ['admin@guatape.gov.co', 'arcilagiraldo@gmail.com']);
-  const adminPass = getCfg('admin_pass', 'guatape2025');
+  const admins      = getCfg('admin_emails', ['admin@guatape.gov.co', 'arcilagiraldo@gmail.com']);
+  const adminPass   = getCfg('admin_pass',   'guatape2025');
   const visitorPass = getCfg('visitor_pass', 'visita2025');
 
   if (loginMode === 'admin') {
@@ -776,28 +933,29 @@ function showLoginError() {
 }
 
 function startApp(role, email) {
-  currentRole = role;
+  currentRole      = role;
+  googleUserEmail  = email;
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-  document.getElementById('role-badge').textContent = role === 'admin' ? '⚙ Admin' : '👁 Visitante';
-  document.getElementById('role-badge').className = 'badge-role ' + (role === 'admin' ? 'badge-admin' : 'badge-visitor');
+  document.getElementById('app').style.display          = 'flex';
+  document.getElementById('role-badge').textContent     = role === 'admin' ? '⚙ Admin' : '👁 Visitante';
+  document.getElementById('role-badge').className       = 'badge-role ' + (role === 'admin' ? 'badge-admin' : 'badge-visitor');
   document.querySelectorAll('.admin-only').forEach(el => el.style.display = role === 'admin' ? '' : 'none');
   showTab('dashboard');
 }
 
 function doLogout() {
-  currentRole = null;
-  accessToken = null;
-  tokenClient = null;
-  document.getElementById('app').style.display = 'none';
+  currentRole     = null;
+  accessToken     = null;
+  googleUserEmail = null;
+  document.getElementById('app').style.display          = 'none';
   document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('login-email').value = '';
-  document.getElementById('login-pass').value = '';
+  document.getElementById('login-email').value  = '';
+  document.getElementById('login-pass').value   = '';
   document.getElementById('visitor-pass').value = '';
 }
 
 // ══════════════════════════════════════════════
-//  TABS
+//  TABS PRINCIPALES
 // ══════════════════════════════════════════════
 function showTab(tab) {
   ['dashboard','sectores','individuos','mapa','config','sector-detail'].forEach(t => {
@@ -811,11 +969,11 @@ function showTab(tab) {
   const btn = document.getElementById('tab-' + tab);
   if (btn) btn.classList.add('active');
 
-  if (tab === 'dashboard') renderDashboard();
-  if (tab === 'sectores') renderSectores();
+  if (tab === 'dashboard')  renderDashboard();
+  if (tab === 'sectores')   renderSectores();
   if (tab === 'individuos') { populateSectorFilters(); renderTable(); }
-  if (tab === 'mapa') renderMapa();
-  if (tab === 'config') renderConfig();
+  if (tab === 'mapa')       renderMapa();
+  if (tab === 'config')     renderConfig();
 }
 
 // ══════════════════════════════════════════════
@@ -825,10 +983,10 @@ async function renderDashboard() {
   const sectores   = await dbGetAll('sectores');
   const individuos = await dbGetAll('individuos');
 
-  const totalInd = individuos.reduce((s,i) => s + (parseInt(i.cantidad)||1), 0);
-  const verde    = individuos.filter(i=>i.estado==='verde').length;
-  const amarillo = individuos.filter(i=>i.estado==='amarillo').length;
-  const rojo     = individuos.filter(i=>i.estado==='rojo').length;
+  const totalInd  = individuos.reduce((s,i) => s + (parseInt(i.cantidad)||1), 0);
+  const verde     = individuos.filter(i=>i.estado==='verde').length;
+  const amarillo  = individuos.filter(i=>i.estado==='amarillo').length;
+  const rojo      = individuos.filter(i=>i.estado==='rojo').length;
   const conCoords = individuos.filter(i=>i.lat && i.lng).length;
 
   document.getElementById('stat-cards').innerHTML = `
@@ -845,8 +1003,8 @@ async function renderDashboard() {
   `;
 
   const urgent = individuos.filter(i=>i.accion==='urgente'||i.estado==='rojo');
-  const sMap = {}; sectores.forEach(s=>sMap[s.id]=s.nombre);
-  const tbody = document.getElementById('urgent-tbody');
+  const sMap   = {}; sectores.forEach(s=>sMap[s.id]=s.nombre);
+  const tbody  = document.getElementById('urgent-tbody');
   tbody.innerHTML = urgent.length === 0
     ? '<tr><td colspan="5" style="text-align:center;color:var(--gris-texto);padding:20px;">✅ Sin árboles en estado crítico</td></tr>'
     : urgent.map(i=>`
@@ -871,9 +1029,9 @@ async function renderSectores() {
     return;
   }
   grid.innerHTML = sectores.map(s => {
-    const inds = individuos.filter(i=>i.sectorId===s.id);
-    const total = inds.reduce((a,i)=>a+(parseInt(i.cantidad)||1),0);
-    const criticos = inds.filter(i=>i.estado==='rojo').length;
+    const inds      = individuos.filter(i=>i.sectorId===s.id);
+    const total     = inds.reduce((a,i)=>a+(parseInt(i.cantidad)||1),0);
+    const criticos  = inds.filter(i=>i.estado==='rojo').length;
     const borderColor = criticos > 0 ? 'var(--semaforo-rojo)' : inds.some(i=>i.estado==='amarillo') ? 'var(--semaforo-amarillo)' : 'var(--verde)';
     return `<div class="sector-card" style="border-left-color:${borderColor}" onclick="showSectorDetail(${s.id})">
       <div class="sector-card-header">
@@ -895,12 +1053,12 @@ async function showSectorDetail(sectorId) {
   const sector = sectores.find(s=>s.id===sectorId);
   const inds   = individuos.filter(i=>i.sectorId===sectorId);
 
-  document.getElementById('view-sectores').style.display = 'none';
+  document.getElementById('view-sectores').style.display     = 'none';
   document.getElementById('view-sector-detail').style.display = '';
 
-  const verde = inds.filter(i=>i.estado==='verde').length;
+  const verde    = inds.filter(i=>i.estado==='verde').length;
   const amarillo = inds.filter(i=>i.estado==='amarillo').length;
-  const rojo = inds.filter(i=>i.estado==='rojo').length;
+  const rojo     = inds.filter(i=>i.estado==='rojo').length;
 
   document.getElementById('sector-detail-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
@@ -979,7 +1137,9 @@ async function populateSectorFilters() {
     const el = document.getElementById(id);
     if (!el) return;
     const cur = el.value;
-    el.innerHTML = (id==='filter-sector'||id==='filter-mapa-sector') ? '<option value="">Todos los sectores</option>' : '<option value="">-- Seleccionar --</option>';
+    el.innerHTML = (id==='filter-sector'||id==='filter-mapa-sector')
+      ? '<option value="">Todos los sectores</option>'
+      : '<option value="">-- Seleccionar --</option>';
     sectores.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s.id; opt.textContent = s.nombre;
@@ -998,8 +1158,8 @@ async function renderMapa() {
   const sectores   = await dbGetAll('sectores');
   const sMap = {}; sectores.forEach(s=>sMap[s.id]=s.nombre);
 
-  const secFilter = document.getElementById('filter-mapa-sector').value;
-  const filtered  = secFilter ? individuos.filter(i=>String(i.sectorId)===secFilter) : individuos;
+  const secFilter  = document.getElementById('filter-mapa-sector').value;
+  const filtered   = secFilter ? individuos.filter(i=>String(i.sectorId)===secFilter) : individuos;
   const withCoords = filtered.filter(i=>i.lat&&i.lng);
 
   if (!mapaLeaflet) {
@@ -1008,13 +1168,14 @@ async function renderMapa() {
       attribution: '© OpenStreetMap contributors', maxZoom: 19
     }).addTo(mapaLeaflet);
   } else {
-    mapaLeaflet.eachLayer(l => { if (l instanceof L.Marker || l instanceof L.CircleMarker) mapaLeaflet.removeLayer(l); });
+    mapaLeaflet.eachLayer(l => {
+      if (l instanceof L.Marker || l instanceof L.CircleMarker) mapaLeaflet.removeLayer(l);
+    });
   }
 
   const colorMap = { verde: '#40916c', amarillo: '#f4a261', rojo: '#e63946' };
-
   withCoords.forEach(i => {
-    const color = colorMap[i.estado] || '#888';
+    const color  = colorMap[i.estado] || '#888';
     const marker = L.circleMarker([parseFloat(i.lat), parseFloat(i.lng)], {
       radius: 10, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9
     }).addTo(mapaLeaflet);
@@ -1034,48 +1195,47 @@ async function renderMapa() {
   } else {
     const lats = withCoords.map(i=>parseFloat(i.lat));
     const lngs = withCoords.map(i=>parseFloat(i.lng));
-    mapaLeaflet.fitBounds([[Math.min(...lats),Math.min(...lngs)],[Math.max(...lats),Math.max(...lngs)]], {padding:[40,40]});
+    mapaLeaflet.fitBounds(
+      [[Math.min(...lats),Math.min(...lngs)],[Math.max(...lats),Math.max(...lngs)]],
+      {padding:[40,40]}
+    );
   }
   setTimeout(()=>mapaLeaflet.invalidateSize(), 200);
 }
 
 // ══════════════════════════════════════════════
-//  MODALES
+//  MODALES ÁRBOL / SECTOR
 // ══════════════════════════════════════════════
 async function openIndividuoModal(id=null, preselectSector=null) {
   await populateSectorFilters();
   pendingFotos = []; currentEditFotos = [];
   document.getElementById('foto-preview-grid').innerHTML = '';
-  document.getElementById('ind-fotos').value = '';
-  document.getElementById('ind-id').value = '';
+  document.getElementById('ind-fotos').value             = '';
+  document.getElementById('ind-id').value                = '';
   document.getElementById('ind-modal-title').textContent = id ? 'Editar Árbol' : 'Agregar Árbol';
 
   if (id) {
     const individuos = await dbGetAll('individuos');
     const ind = individuos.find(i=>i.id===id);
     if (ind) {
-      document.getElementById('ind-id').value = ind.id;
-      document.getElementById('ind-nombre').value = ind.nombre||'';
-      document.getElementById('ind-cientifico').value = ind.cientifico||'';
-      document.getElementById('ind-sector').value = ind.sectorId||'';
-      document.getElementById('ind-cantidad').value = ind.cantidad||1;
-      document.getElementById('ind-estado').value = ind.estado||'verde';
-      document.getElementById('ind-accion').value = ind.accion||'sin-novedad';
-      document.getElementById('ind-obs').value = ind.obs||'';
-      document.getElementById('ind-lat').value = ind.lat||'';
-      document.getElementById('ind-lng').value = ind.lng||'';
+      document.getElementById('ind-id').value        = ind.id;
+      document.getElementById('ind-nombre').value    = ind.nombre||'';
+      document.getElementById('ind-cientifico').value= ind.cientifico||'';
+      document.getElementById('ind-sector').value    = ind.sectorId||'';
+      document.getElementById('ind-cantidad').value  = ind.cantidad||1;
+      document.getElementById('ind-estado').value    = ind.estado||'verde';
+      document.getElementById('ind-accion').value    = ind.accion||'sin-novedad';
+      document.getElementById('ind-obs').value       = ind.obs||'';
+      document.getElementById('ind-lat').value       = ind.lat||'';
+      document.getElementById('ind-lng').value       = ind.lng||'';
       currentEditFotos = ind.fotos||[];
       renderFotoPreview();
     }
   } else {
-    document.getElementById('ind-nombre').value = '';
-    document.getElementById('ind-cientifico').value = '';
+    ['ind-nombre','ind-cientifico','ind-obs','ind-lat','ind-lng'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('ind-cantidad').value = 1;
-    document.getElementById('ind-estado').value = 'verde';
-    document.getElementById('ind-accion').value = 'sin-novedad';
-    document.getElementById('ind-obs').value = '';
-    document.getElementById('ind-lat').value = '';
-    document.getElementById('ind-lng').value = '';
+    document.getElementById('ind-estado').value   = 'verde';
+    document.getElementById('ind-accion').value   = 'sin-novedad';
     if (preselectSector) document.getElementById('ind-sector').value = preselectSector;
   }
   document.getElementById('individuo-modal').classList.add('open');
@@ -1099,8 +1259,7 @@ function removeFoto(idx) {
 }
 
 document.getElementById('ind-fotos').addEventListener('change', function() {
-  const files = Array.from(this.files);
-  files.forEach(f => {
+  Array.from(this.files).forEach(f => {
     const reader = new FileReader();
     reader.onload = e => { pendingFotos.push(e.target.result); renderFotoPreview(); };
     reader.readAsDataURL(f);
@@ -1108,7 +1267,7 @@ document.getElementById('ind-fotos').addEventListener('change', function() {
 });
 
 async function saveIndividuo() {
-  const nombre = document.getElementById('ind-nombre').value.trim();
+  const nombre   = document.getElementById('ind-nombre').value.trim();
   const sectorId = parseInt(document.getElementById('ind-sector').value);
   if (!nombre || !sectorId) { showToast('Nombre y sector son obligatorios','err'); return; }
 
@@ -1117,12 +1276,12 @@ async function saveIndividuo() {
     nombre,
     cientifico: document.getElementById('ind-cientifico').value.trim(),
     sectorId,
-    cantidad: parseInt(document.getElementById('ind-cantidad').value)||1,
-    estado: document.getElementById('ind-estado').value,
-    accion: document.getElementById('ind-accion').value,
-    obs: document.getElementById('ind-obs').value.trim(),
-    lat: document.getElementById('ind-lat').value.trim(),
-    lng: document.getElementById('ind-lng').value.trim(),
+    cantidad:   parseInt(document.getElementById('ind-cantidad').value)||1,
+    estado:     document.getElementById('ind-estado').value,
+    accion:     document.getElementById('ind-accion').value,
+    obs:        document.getElementById('ind-obs').value.trim(),
+    lat:        document.getElementById('ind-lat').value.trim(),
+    lng:        document.getElementById('ind-lng').value.trim(),
     fotos,
     updatedAt: new Date().toISOString()
   };
@@ -1131,22 +1290,17 @@ async function saveIndividuo() {
 
   await dbPut('individuos', obj);
 
-  // GOOGLE SHEETS SAVE
-  const sectores = await dbGetAll('sectores');
-  const sectorNombre = (sectores.find(s => s.id === sectorId) || {}).nombre || String(sectorId);
-  const data = [
-    obj.nombre,
-    obj.cientifico || '',
-    sectorNombre,
-    obj.cantidad,
-    obj.estado,
-    accionLabel(obj.accion),
-    obj.obs || '',
-    obj.lat || '',
-    obj.lng || '',
-    new Date().toLocaleString('es-CO')
-  ];
-  saveToSheets(data);
+  // Append a Sheets via API directa si hay token
+  if (accessToken) {
+    const sectores     = await dbGetAll('sectores');
+    const sectorNombre = (sectores.find(s => s.id === sectorId) || {}).nombre || String(sectorId);
+    const data = [
+      obj.nombre, obj.cientifico||'', sectorNombre, obj.cantidad,
+      obj.estado, accionLabel(obj.accion), obj.obs||'', obj.lat||'', obj.lng||'',
+      new Date().toLocaleString('es-CO')
+    ];
+    saveToSheets(data);
+  }
 
   closeModal('individuo-modal');
   showToast('✅ Árbol guardado','ok');
@@ -1164,22 +1318,17 @@ async function deleteIndividuo(id) {
 }
 
 async function openSectorModal(id=null) {
-  document.getElementById('sec-id').value = '';
-  document.getElementById('sec-nombre').value = '';
-  document.getElementById('sec-area').value = '';
-  document.getElementById('sec-ubicacion').value = '';
-  document.getElementById('sec-desc').value = '';
+  ['sec-id','sec-nombre','sec-area','sec-ubicacion','sec-desc'].forEach(k => document.getElementById(k).value = '');
   document.getElementById('sec-modal-title').textContent = id ? 'Editar Sector' : 'Nuevo Sector';
-
   if (id) {
     const sectores = await dbGetAll('sectores');
     const sec = sectores.find(s=>s.id===id);
     if (sec) {
-      document.getElementById('sec-id').value = sec.id;
-      document.getElementById('sec-nombre').value = sec.nombre||'';
-      document.getElementById('sec-area').value = sec.area||'';
+      document.getElementById('sec-id').value        = sec.id;
+      document.getElementById('sec-nombre').value    = sec.nombre||'';
+      document.getElementById('sec-area').value      = sec.area||'';
       document.getElementById('sec-ubicacion').value = sec.ubicacion||'';
-      document.getElementById('sec-desc').value = sec.desc||'';
+      document.getElementById('sec-desc').value      = sec.desc||'';
     }
   }
   document.getElementById('sector-modal').classList.add('open');
@@ -1190,9 +1339,9 @@ async function saveSector() {
   if (!nombre) { showToast('El nombre es obligatorio','err'); return; }
   const obj = {
     nombre,
-    area: document.getElementById('sec-area').value.trim(),
+    area:      document.getElementById('sec-area').value.trim(),
     ubicacion: document.getElementById('sec-ubicacion').value.trim(),
-    desc: document.getElementById('sec-desc').value.trim(),
+    desc:      document.getElementById('sec-desc').value.trim(),
     updatedAt: new Date().toISOString()
   };
   const idVal = document.getElementById('sec-id').value;
@@ -1222,13 +1371,18 @@ function getGPS() {
   );
 }
 
-
-// GOOGLE AUTH — tokenClient se inicializa una sola vez cuando la libreria carga
+// ══════════════════════════════════════════════
+//  GOOGLE AUTH
+// ══════════════════════════════════════════════
 function initGoogleClient() {
   if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return;
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
-    scope: "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email",
+    scope: [
+      'https://www.googleapis.com/auth/spreadsheets',
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/userinfo.email'
+    ].join(' '),
     callback: async (response) => {
       if (response.error) {
         showToast('Error Google: ' + response.error, 'err');
@@ -1237,37 +1391,46 @@ function initGoogleClient() {
       accessToken = response.access_token;
       let userEmail = 'usuario@google.com';
       try {
-        const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        const r    = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
           headers: { Authorization: 'Bearer ' + accessToken }
         });
         const info = await r.json();
-        userEmail = info.email || userEmail;
-      } catch(e) { /* usar email generico */ }
-      const admins = getCfg('admin_emails', ['admin@guatape.gov.co', 'arcilagiraldo@gmail.com']);
+        userEmail  = info.email || userEmail;
+      } catch(e) { /* usar email genérico */ }
+
+      const admins  = getCfg('admin_emails', ['admin@guatape.gov.co', 'arcilagiraldo@gmail.com']);
       const isAdmin = admins.map(e => e.toLowerCase()).includes(userEmail.toLowerCase());
-      startApp(isAdmin ? 'admin' : 'visitor', userEmail);
-      showToast('Sesion iniciada como ' + userEmail, 'ok');
+
+      // Si ya está en la app, solo actualizar token y estado Drive
+      if (currentRole) {
+        googleUserEmail = userEmail;
+        updateDriveStatus();
+        showToast('✅ Google conectado como ' + userEmail, 'ok');
+      } else {
+        startApp(isAdmin ? 'admin' : 'visitor', userEmail);
+        showToast('Sesión iniciada como ' + userEmail, 'ok');
+      }
     }
   });
 }
 
-// doAuth se llama directamente desde onclick — debe ser sincrono para que el popup no sea bloqueado
+// doAuth debe ser síncrono para que el popup no sea bloqueado
 function doAuth() {
   if (!tokenClient) initGoogleClient();
   if (!tokenClient) {
-    showToast('La libreria de Google no cargo. Recarga la pagina.', 'err');
+    showToast('La librería de Google no cargó. Recarga la página.', 'err');
     return;
   }
   tokenClient.requestAccessToken({ prompt: '' });
 }
 
 function saveToSheets(data) {
-  if (!accessToken) return; // silencioso: sin token simplemente no sincroniza con Sheets
+  if (!accessToken) return;
   fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Hoja1!A1:append?valueInputOption=RAW`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Authorization": "Bearer " + accessToken,
-      "Content-Type": "application/json"
+      'Authorization': 'Bearer ' + accessToken,
+      'Content-Type':  'application/json'
     },
     body: JSON.stringify({ values: [data] })
   }).then(r => {
@@ -1276,19 +1439,18 @@ function saveToSheets(data) {
 }
 
 // ══════════════════════════════════════════════
-//  GOOGLE SHEETS SYNC
+//  SYNC (Apps Script)
 // ══════════════════════════════════════════════
 async function syncAll() {
   const url = getCfg('gs_url', '');
   if (!url) return;
   showSyncStatus('Sincronizando con Google Sheets…');
   try {
-    const sectores   = await dbGetAll('sectores');
-    const individuos = await dbGetAll('individuos');
-    // Strip fotos for sync (too large for sheets)
-    const indsSanitized = individuos.map(i=>({...i, fotos: (i.fotos||[]).length + ' foto(s)'}));
+    const sectores        = await dbGetAll('sectores');
+    const individuos      = await dbGetAll('individuos');
+    const indsSanitized   = individuos.map(i=>({...i, fotos: (i.fotos||[]).length + ' foto(s)'}));
     const body = JSON.stringify({ action:'sync', sectores, individuos: indsSanitized });
-    const res = await fetch(url, { method:'POST', body, headers:{'Content-Type':'application/json'} });
+    const res  = await fetch(url, { method:'POST', body, headers:{'Content-Type':'application/json'} });
     const json = await res.json();
     if (json.status === 'ok') showToast('☁️ Sincronizado con Google Sheets','ok');
     else showToast('Error al sincronizar: ' + (json.error||''),'err');
@@ -1308,31 +1470,76 @@ function hideSyncStatus() {
 }
 
 // ══════════════════════════════════════════════
-//  CONFIGURACIÓN
+//  CONFIGURACIÓN — SUB-PESTAÑAS
 // ══════════════════════════════════════════════
-function renderConfig() {
-  document.getElementById('gs-url').value = getCfg('gs_url','');
-  const emails = getCfg('admin_emails', ['admin@guatape.gov.co', 'arcilagiraldo@gmail.com']);
-  document.getElementById('emails-list').innerHTML = emails.map(e=>`
-    <div class="email-item">${e} <button class="btn-tiny btn-del" onclick="removeEmail('${e}')">✕</button></div>`).join('');
-  document.getElementById('gas-code-block').textContent = getGASCode();
+function showConfigTab(tab) {
+  ['drive','exportar','admins','seguridad','gas'].forEach(t => {
+    const view = document.getElementById('ctab-view-' + t);
+    const btn  = document.getElementById('ctab-' + t);
+    if (view) view.style.display = 'none';
+    if (btn)  btn.classList.remove('active');
+  });
+  const view = document.getElementById('ctab-view-' + tab);
+  const btn  = document.getElementById('ctab-' + tab);
+  if (view) view.style.display = '';
+  if (btn)  btn.classList.add('active');
+
+  if (tab === 'admins')  renderAdminEmails();
+  if (tab === 'gas')     document.getElementById('gas-code-block').textContent = getGASCode();
+  if (tab === 'drive')   updateDriveStatus();
 }
 
-function saveGSUrl() {
-  setCfg('gs_url', document.getElementById('gs-url').value.trim());
-  showToast('URL guardada','ok');
+function renderConfig() {
+  // Cargar valores guardados
+  const folderEl = document.getElementById('drive-folder-id');
+  const gsUrlEl  = document.getElementById('gs-url');
+  if (folderEl) folderEl.value = getCfg('drive_folder_id', '');
+  if (gsUrlEl)  gsUrlEl.value  = getCfg('gs_url', '');
+  // Limpiar resultado de exportar
+  const expRes = document.getElementById('export-result');
+  if (expRes) expRes.innerHTML = '';
+  // Mostrar la pestaña Drive al entrar
+  showConfigTab('drive');
+}
+
+function updateDriveStatus() {
+  const dot  = document.getElementById('drive-dot');
+  const text = document.getElementById('drive-status-text');
+  if (!dot || !text) return;
+  if (accessToken) {
+    dot.className    = 'drive-dot connected';
+    text.textContent = '✅ Conectado' + (googleUserEmail ? ' como ' + googleUserEmail : '') + ' — listo para sincronizar';
+  } else {
+    dot.className    = 'drive-dot disconnected';
+    text.textContent = 'No conectado — inicia sesión para sincronizar';
+  }
+}
+
+function saveDriveConfig() {
+  setCfg('drive_folder_id', document.getElementById('drive-folder-id').value.trim());
+  setCfg('gs_url',          document.getElementById('gs-url').value.trim());
+  showToast('✅ Configuración guardada','ok');
 }
 
 async function testGS() {
   const url = getCfg('gs_url','');
-  if (!url) { showToast('Primero guarda la URL','err'); return; }
+  if (!url) { showToast('Primero guarda la URL de Apps Script','err'); return; }
+  const el = document.getElementById('gs-test-result');
+  el.innerHTML = '<span style="color:var(--gris-texto)">⏳ Probando conexión…</span>';
   try {
-    const res = await fetch(url + '?action=ping');
+    const res  = await fetch(url + '?action=ping');
     const json = await res.json();
-    document.getElementById('gs-test-result').innerHTML = `<span style="color:var(--semaforo-verde)">✅ Conexión exitosa: ${json.message||'OK'}</span>`;
+    el.innerHTML = `<span style="color:var(--semaforo-verde)">✅ Conexión exitosa: ${json.message||'OK'}</span>`;
   } catch(e) {
-    document.getElementById('gs-test-result').innerHTML = `<span style="color:var(--rojo)">❌ Error de conexión. Verifica la URL y permisos del Web App.</span>`;
+    el.innerHTML = `<span style="color:var(--rojo)">❌ Error de conexión. Verifica la URL y permisos del Web App.</span>`;
   }
+}
+
+function renderAdminEmails() {
+  const emails = getCfg('admin_emails', ['admin@guatape.gov.co', 'arcilagiraldo@gmail.com']);
+  const el = document.getElementById('emails-list');
+  if (el) el.innerHTML = emails.map(e=>`
+    <div class="email-item">${e} <button class="btn-tiny btn-del" onclick="removeEmail('${e}')">✕</button></div>`).join('');
 }
 
 function addAdminEmail() {
@@ -1341,12 +1548,14 @@ function addAdminEmail() {
   const emails = getCfg('admin_emails', ['admin@guatape.gov.co', 'arcilagiraldo@gmail.com']);
   if (!emails.includes(val)) { emails.push(val); setCfg('admin_emails', emails); }
   document.getElementById('new-admin-email').value = '';
-  renderConfig();
+  renderAdminEmails();
   showToast('Email agregado','ok');
 }
+
 function removeEmail(e) {
   const emails = getCfg('admin_emails', []).filter(x=>x!==e);
-  setCfg('admin_emails', emails); renderConfig();
+  setCfg('admin_emails', emails);
+  renderAdminEmails();
 }
 
 function savePasswords() {
@@ -1354,19 +1563,84 @@ function savePasswords() {
   const vp = document.getElementById('new-visitor-pass').value;
   if (ap) setCfg('admin_pass', ap);
   if (vp) setCfg('visitor_pass', vp);
-  document.getElementById('new-admin-pass').value = '';
+  document.getElementById('new-admin-pass').value  = '';
   document.getElementById('new-visitor-pass').value = '';
   showToast('Contraseñas actualizadas','ok');
 }
 
 function copyGASCode() {
-  navigator.clipboard.writeText(getGASCode());
-  showToast('📋 Código copiado al portapapeles','ok');
+  navigator.clipboard.writeText(getGASCode()).then(()=>showToast('📋 Código copiado','ok'));
 }
 
 // ══════════════════════════════════════════════
-//  EXPORT CSV
+//  EXPORTAR — funciones
 // ══════════════════════════════════════════════
+
+// 1. Guardar en Google Sheets (Sheets API directa)
+async function guardarEnSheets() {
+  const res = document.getElementById('export-result');
+  if (!accessToken) {
+    res.innerHTML = '<span style="color:var(--rojo)">❌ Primero inicia sesión con Google (pestaña Drive)</span>';
+    return;
+  }
+  res.innerHTML = '<span style="color:var(--gris-texto)">⏳ Subiendo datos a Google Sheets…</span>';
+  try {
+    const sectores   = await dbGetAll('sectores');
+    const individuos = await dbGetAll('individuos');
+    const sMap = {}; sectores.forEach(s=>sMap[s.id]=s.nombre);
+
+    const rows = [['ID','Nombre Común','Nombre Científico','Sector','Cantidad','Estado','Acción','Observaciones','Latitud','Longitud','Fotos','Actualizado']];
+    individuos.forEach(i=>{
+      rows.push([i.id, i.nombre, i.cientifico||'', sMap[i.sectorId]||'', i.cantidad||1,
+        i.estado, accionLabel(i.accion), i.obs||'', i.lat||'', i.lng||'',
+        (i.fotos||[]).length, i.updatedAt||'']);
+    });
+
+    const r = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Individuos!A1?valueInputOption=RAW`,
+      {
+        method:  'PUT',
+        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ values: rows })
+      }
+    );
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.error?.message || 'Error HTTP ' + r.status);
+    }
+    res.innerHTML = `<span style="color:var(--semaforo-verde)">✅ ${individuos.length} registros guardados en Google Sheets</span>`;
+    showToast('☁️ Datos guardados en Sheets','ok');
+  } catch(e) {
+    res.innerHTML = `<span style="color:var(--rojo)">❌ Error: ${e.message}</span>`;
+  }
+}
+
+// 2. Cargar datos desde Apps Script
+async function cargarDatosActualizados() {
+  const res = document.getElementById('export-result');
+  const url = getCfg('gs_url', '');
+  if (!url) {
+    res.innerHTML = '<span style="color:var(--rojo)">❌ Configura primero la URL de Apps Script en la pestaña Drive</span>';
+    return;
+  }
+  res.innerHTML = '<span style="color:var(--gris-texto)">⏳ Cargando desde Google Sheets…</span>';
+  showSyncStatus('Cargando datos actualizados…');
+  try {
+    const r    = await fetch(url + '?action=load');
+    const json = await r.json();
+    if (json.status !== 'ok') throw new Error(json.error || 'Error desconocido');
+    if (json.sectores)   for (const s of json.sectores)   await dbPut('sectores', s);
+    if (json.individuos) for (const i of json.individuos) await dbPut('individuos', i);
+    res.innerHTML = `<span style="color:var(--semaforo-verde)">✅ Datos cargados: ${(json.individuos||[]).length} individuos</span>`;
+    showToast('📥 Datos actualizados cargados','ok');
+    renderDashboard();
+  } catch(e) {
+    res.innerHTML = `<span style="color:var(--rojo)">❌ Error: ${e.message}. Verifica la URL de Apps Script.</span>`;
+  }
+  hideSyncStatus();
+}
+
+// 3. Descargar CSV local
 async function exportCSV() {
   const individuos = await dbGetAll('individuos');
   const sectores   = await dbGetAll('sectores');
@@ -1378,17 +1652,113 @@ async function exportCSV() {
       (i.fotos||[]).length, i.updatedAt||'']);
   });
   const csv = rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  const a   = document.createElement('a');
+  a.href    = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
   a.download = 'inventario_arboles_guatape.csv';
   a.click();
+}
+
+async function descargarExcel() {
+  const res = document.getElementById('export-result');
+  res.innerHTML = '<span style="color:var(--gris-texto)">⏳ Generando archivo…</span>';
+  try {
+    await exportCSV();
+    res.innerHTML = '<span style="color:var(--semaforo-verde)">✅ Archivo CSV descargado correctamente</span>';
+  } catch(e) {
+    res.innerHTML = `<span style="color:var(--rojo)">❌ Error: ${e.message}</span>`;
+  }
+}
+
+// 4. Subir CSV a Google Drive
+async function guardarExcelDrive() {
+  const res = document.getElementById('export-result');
+  if (!accessToken) {
+    res.innerHTML = '<span style="color:var(--rojo)">❌ Primero inicia sesión con Google (pestaña Drive)</span>';
+    return;
+  }
+  res.innerHTML = '<span style="color:var(--gris-texto)">⏳ Generando y subiendo archivo…</span>';
+  try {
+    const individuos = await dbGetAll('individuos');
+    const secs       = await dbGetAll('sectores');
+    const sMap = {}; secs.forEach(s=>sMap[s.id]=s.nombre);
+
+    const rows = [['ID','Nombre Común','Nombre Científico','Sector','Cantidad','Estado','Acción','Observaciones','Latitud','Longitud','Actualizado']];
+    individuos.forEach(i=>{
+      rows.push([i.id, i.nombre, i.cientifico||'', sMap[i.sectorId]||'', i.cantidad||1,
+        i.estado, accionLabel(i.accion), i.obs||'', i.lat||'', i.lng||'', i.updatedAt||'']);
+    });
+
+    const csv      = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob     = new Blob(['\uFEFF'+csv], {type:'text/csv'});
+    const folderId = getCfg('drive_folder_id','');
+    const metadata = {
+      name:     `inventario_guatape_${new Date().toISOString().slice(0,10)}.csv`,
+      mimeType: 'text/csv'
+    };
+    if (folderId) metadata.parents = [folderId];
+
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], {type:'application/json'}));
+    form.append('file', blob);
+
+    const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method:  'POST',
+      headers: { 'Authorization': 'Bearer ' + accessToken },
+      body:    form
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.error?.message || 'Error HTTP ' + r.status);
+    }
+    const data = await r.json();
+    res.innerHTML = `<span style="color:var(--semaforo-verde)">✅ Archivo guardado en Drive: <a href="https://drive.google.com/file/d/${data.id}/view" target="_blank" style="color:var(--verde);font-weight:600;">Ver archivo ↗</a></span>`;
+    showToast('📊 Excel subido a Google Drive','ok');
+  } catch(e) {
+    res.innerHTML = `<span style="color:var(--rojo)">❌ Error: ${e.message}</span>`;
+  }
+}
+
+// 5. Exportar KML para Google Earth
+async function exportarKML() {
+  const res = document.getElementById('export-result');
+  res.innerHTML = '<span style="color:var(--gris-texto)">⏳ Generando KML…</span>';
+  try {
+    const individuos = await dbGetAll('individuos');
+    const sectores   = await dbGetAll('sectores');
+    const sMap       = {}; sectores.forEach(s=>sMap[s.id]=s.nombre);
+    const conCoords  = individuos.filter(i=>i.lat&&i.lng);
+
+    if (conCoords.length === 0) {
+      res.innerHTML = '<span style="color:var(--rojo)">❌ No hay árboles con coordenadas para exportar</span>';
+      return;
+    }
+
+    const colorKML   = { verde:'ff40916c', amarillo:'ff00a5f4', rojo:'ff3639e6' };
+    const placemarks = conCoords.map(i=>`  <Placemark>
+    <name>${i.nombre.replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c])}</name>
+    <description><![CDATA[<b>${i.nombre}</b>${i.cientifico?'<br><i>'+i.cientifico+'</i>':''}<br>Sector: ${sMap[i.sectorId]||'—'}<br>Estado: ${i.estado}<br>Acción: ${accionLabel(i.accion)}${i.obs?'<br>Obs: '+i.obs:''}]]></description>
+    <Style><IconStyle><color>${colorKML[i.estado]||'ff888888'}</color><scale>1.1</scale></IconStyle></Style>
+    <Point><coordinates>${i.lng},${i.lat},0</coordinates></Point>
+  </Placemark>`).join('\n');
+
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n  <name>Inventario Arbóreo Guatapé 2025</name>\n  <description>Exportado el ${new Date().toLocaleDateString('es-CO')}</description>\n${placemarks}\n</Document>\n</kml>`;
+
+    const a   = document.createElement('a');
+    a.href    = 'data:application/vnd.google-earth.kml+xml;charset=utf-8,' + encodeURIComponent(kml);
+    a.download = `inventario_guatape_${new Date().toISOString().slice(0,10)}.kml`;
+    a.click();
+    res.innerHTML = `<span style="color:var(--semaforo-verde)">✅ KML exportado con ${conCoords.length} árboles geolocalizados</span>`;
+    showToast('🌐 KML exportado correctamente','ok');
+  } catch(e) {
+    res.innerHTML = `<span style="color:var(--rojo)">❌ Error: ${e.message}</span>`;
+  }
 }
 
 // ══════════════════════════════════════════════
 //  HELPERS UI
 // ══════════════════════════════════════════════
 function semaforoHTML(estado) {
-  const map = { verde:'🟢', amarillo:'🟡', rojo:'🔴' };
+  const map    = { verde:'🟢', amarillo:'🟡', rojo:'🔴' };
   const labels = { verde:'Bueno', amarillo:'Regular', rojo:'Crítico' };
   return `<span class="semaforo semaforo-${estado}">${map[estado]||'⚪'} ${labels[estado]||estado}</span>`;
 }
@@ -1406,25 +1776,31 @@ function openFoto(src) {
 function showToast(msg, type='ok') {
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.className = `toast show toast-${type}`;
-  setTimeout(()=>t.classList.remove('show'), 3000);
+  t.className   = `toast show toast-${type}`;
+  setTimeout(()=>t.classList.remove('show'), 3200);
 }
 
 // ══════════════════════════════════════════════
-//  GOOGLE APPS SCRIPT CODE
+//  GOOGLE APPS SCRIPT — CÓDIGO PARA COPIAR
 // ══════════════════════════════════════════════
 function getGASCode() {
 return `// ============================================
 // Inventario Árboles Guatapé — Apps Script
-// Pega este código en script.google.com
-// Impleméntalo como Web App: acceso "Cualquiera"
+// 1. Ve a script.google.com → Nuevo proyecto
+// 2. Pega este código completo
+// 3. Implementar → Web App → Acceso: Cualquiera
+// 4. Copia la URL y pégala en Config > Drive
 // ============================================
 
-const SHEET_ID = 'TU_GOOGLE_SHEET_ID_AQUI'; // <-- reemplaza con tu ID
+const SHEET_ID = '${SHEET_ID}';
 
 function doGet(e) {
-  if (e.parameter.action === 'ping') {
-    return jsonResponse({ message: 'Inventario Árboles Guatapé activo' });
+  const action = e.parameter.action;
+  if (action === 'ping') {
+    return jsonResponse({ status: 'ok', message: 'Inventario Árboles Guatapé activo ✅' });
+  }
+  if (action === 'load') {
+    return loadFromSheets();
   }
   return jsonResponse({ status: 'ok' });
 }
@@ -1442,17 +1818,39 @@ function doPost(e) {
   }
 }
 
+function loadFromSheets() {
+  try {
+    const ss  = SpreadsheetApp.openById(SHEET_ID);
+    const shS = ss.getSheetByName('Sectores');
+    const shI = ss.getSheetByName('Individuos');
+    const sectores   = shS ? sheetToObjects(shS)   : [];
+    const individuos = shI ? sheetToObjects(shI)   : [];
+    return jsonResponse({ status: 'ok', sectores, individuos });
+  } catch(err) {
+    return jsonResponse({ status: 'error', error: err.message });
+  }
+}
+
+function sheetToObjects(sheet) {
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return [];
+  const headers = data[0];
+  return data.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = row[i]);
+    return obj;
+  });
+}
+
 function syncToSheets(sectores, individuos) {
   const ss = SpreadsheetApp.openById(SHEET_ID);
 
-  // --- Sectores ---
   let shSec = ss.getSheetByName('Sectores');
   if (!shSec) shSec = ss.insertSheet('Sectores');
   shSec.clearContents();
   shSec.appendRow(['ID','Nombre','Área (m²)','Ubicación','Descripción','Actualizado']);
   sectores.forEach(s => shSec.appendRow([s.id, s.nombre, s.area||'', s.ubicacion||'', s.desc||'', s.updatedAt||'']));
 
-  // --- Individuos ---
   let shInd = ss.getSheetByName('Individuos');
   if (!shInd) shInd = ss.insertSheet('Individuos');
   shInd.clearContents();
@@ -1463,11 +1861,11 @@ function syncToSheets(sectores, individuos) {
     i.fotos||'', i.updatedAt||''
   ]));
 
-  // --- Dar formato al encabezado ---
   [shSec, shInd].forEach(sh => {
     sh.getRange(1, 1, 1, sh.getLastColumn())
       .setBackground('#1b4332').setFontColor('#ffffff').setFontWeight('bold');
     sh.setFrozenRows(1);
+    sh.autoResizeColumns(1, sh.getLastColumn());
   });
 }
 
@@ -1578,8 +1976,8 @@ const DATOS_INICIALES = {
 
 async function seedIfEmpty() {
   const sectores = await dbGetAll('sectores');
-  if (sectores.length > 0) return; // ya tiene datos
-  for (const s of DATOS_INICIALES.sectores) await dbPut('sectores', s);
+  if (sectores.length > 0) return;
+  for (const s of DATOS_INICIALES.sectores)   await dbPut('sectores', s);
   for (const i of DATOS_INICIALES.individuos) await dbPut('individuos', i);
 }
 
@@ -1589,16 +1987,13 @@ async function seedIfEmpty() {
 window.addEventListener('DOMContentLoaded', async () => {
   await initDB();
   await seedIfEmpty();
-  document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
-  document.getElementById('visitor-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
-  // Inicializar Google tokenClient cuando la libreria este lista
+  document.getElementById('login-pass').addEventListener('keydown',    e => { if(e.key==='Enter') doLogin(); });
+  document.getElementById('visitor-pass').addEventListener('keydown',  e => { if(e.key==='Enter') doLogin(); });
+  // Inicializar Google tokenClient cuando la librería esté lista
   if (typeof google !== 'undefined' && google.accounts) {
     initGoogleClient();
   } else {
-    // La libreria GSI carga async — esperar a que este disponible
-    window.addEventListener('load', () => {
-      setTimeout(initGoogleClient, 500);
-    });
+    window.addEventListener('load', () => setTimeout(initGoogleClient, 600));
   }
 });
 </script>
