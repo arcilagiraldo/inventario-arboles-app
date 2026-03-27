@@ -1003,6 +1003,8 @@ function showTab(tab) {
 // ══════════════════════════════════════════════
 //  DASHBOARD
 // ══════════════════════════════════════════════
+
+// ===== DASHBOARD PRO =====
 async function renderDashboard() {
   const sectores   = await dbGetAll('sectores');
   const individuos = await dbGetAll('individuos');
@@ -1014,32 +1016,112 @@ async function renderDashboard() {
   const conCoords = individuos.filter(i=>i.lat && i.lng).length;
 
   document.getElementById('stat-cards').innerHTML = `
-    <div class="stat-card"><div class="stat-num">${sectores.length}</div><div class="stat-label">Sectores</div></div>
-    <div class="stat-card"><div class="stat-num">${individuos.length}</div><div class="stat-label">Registros</div></div>
-    <div class="stat-card"><div class="stat-num">${totalInd}</div><div class="stat-label">Individuos totales</div></div>
-    <div class="stat-card"><div class="stat-num">${conCoords}</div><div class="stat-label">Con coordenadas</div></div>
+    <div class="stat-card" onclick="goSectores()">
+      <div class="stat-num">${sectores.length}</div>
+      <div class="stat-label">Sectores</div>
+    </div>
+
+    <div class="stat-card" onclick="goInventario()">
+      <div class="stat-num">${individuos.length}</div>
+      <div class="stat-label">Registros</div>
+    </div>
+
+    <div class="stat-card" onclick="goInventario()">
+      <div class="stat-num">${totalInd}</div>
+      <div class="stat-label">Individuos</div>
+    </div>
+
+    <div class="stat-card" onclick="goMapaCoords()">
+      <div class="stat-num">${conCoords}</div>
+      <div class="stat-label">Con coordenadas</div>
+    </div>
   `;
 
   document.getElementById('priority-cards').innerHTML = `
-    <div class="priority-card verde"><div class="priority-dot dot-verde"></div><div class="priority-info"><div class="priority-num">${verde}</div><div class="priority-label">Buen estado</div></div></div>
-    <div class="priority-card amarillo"><div class="priority-dot dot-amarillo"></div><div class="priority-info"><div class="priority-num">${amarillo}</div><div class="priority-label">Estado regular</div></div></div>
-    <div class="priority-card rojo"><div class="priority-dot dot-rojo"></div><div class="priority-info"><div class="priority-num">${rojo}</div><div class="priority-label">Estado crítico</div></div></div>
-  `;
+    <div class="priority-card verde" onclick="filtrarEstado('verde')">
+      <div class="priority-dot dot-verde"></div>
+      <div class="priority-info">
+        <div class="priority-num">${verde}</div>
+        <div class="priority-label">Buen estado</div>
+      </div>
+    </div>
 
-  const urgent = individuos.filter(i=>i.accion==='urgente'||i.estado==='rojo');
-  const sMap   = {}; sectores.forEach(s=>sMap[s.id]=s.nombre);
-  const tbody  = document.getElementById('urgent-tbody');
-  tbody.innerHTML = urgent.length === 0
-    ? '<tr><td colspan="5" style="text-align:center;color:var(--gris-texto);padding:20px;">✅ Sin árboles en estado crítico</td></tr>'
-    : urgent.map(i=>`
-      <tr>
-        <td><b>#${i.id}</b></td>
-        <td>${i.nombre}${i.cientifico?'<br><small style="color:var(--gris-texto);font-style:italic;">'+i.cientifico+'</small>':''}</td>
-        <td>${sMap[i.sectorId]||'—'}</td>
-        <td>${semaforoHTML(i.estado)}</td>
-        <td><span class="accion-badge accion-${i.accion}">${accionLabel(i.accion)}</span></td>
-      </tr>`).join('');
+    <div class="priority-card amarillo" onclick="filtrarEstado('amarillo')">
+      <div class="priority-dot dot-amarillo"></div>
+      <div class="priority-info">
+        <div class="priority-num">${amarillo}</div>
+        <div class="priority-label">Regular</div>
+      </div>
+    </div>
+
+    <div class="priority-card rojo" onclick="filtrarEstado('rojo')">
+      <div class="priority-dot dot-rojo"></div>
+      <div class="priority-info">
+        <div class="priority-num">${rojo}</div>
+        <div class="priority-label">Crítico</div>
+      </div>
+    </div>
+  `;
 }
+
+function goSectores(){ showTab('sectores'); }
+function goInventario(){ showTab('individuos'); }
+function goMapaCoords(){
+  showTab('mapa');
+  setTimeout(()=>renderMapa(),300);
+}
+
+function filtrarEstado(estado){
+  showTab('individuos');
+  setTimeout(()=>{
+    document.getElementById('filter-estado').value = estado;
+    renderTable();
+  },200);
+}
+
+// ===== COMPRESIÓN DE IMÁGENES =====
+async function compressImage(file){
+  return new Promise(resolve=>{
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = e=>{
+      img.src = e.target.result;
+    };
+
+    img.onload = ()=>{
+      const canvas = document.createElement('canvas');
+      const maxW = 1200;
+      const scale = Math.min(1, maxW / img.width);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+
+      resolve(canvas.toDataURL('image/jpeg',0.7));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
+// override handler fotos
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.getElementById("ind-fotos");
+  if(input){
+    input.addEventListener("change", async e=>{
+      const files = Array.from(e.target.files);
+      for(const file of files){
+        const compressed = await compressImage(file);
+        pendingFotos.push(compressed);
+        renderFotoPreview();
+      }
+      e.target.value="";
+    });
+  }
+});
+
 
 // ══════════════════════════════════════════════
 //  SECTORES
