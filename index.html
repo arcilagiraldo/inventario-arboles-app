@@ -194,7 +194,10 @@ body {
 
 /* ── NAV ── */
 .nav {
-  justify-content: center;
+  justify-content:center;
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,0.85);
+  box-shadow: 0 -2px 20px rgba(0,0,0,0.1);
   background: var(--blanco);
   display: flex; gap: 0; overflow-x: auto; padding: 0 12px;
   position: fixed;
@@ -282,6 +285,8 @@ body {
   cursor: pointer;
 }
 .btn-primary {
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+  border-radius: 12px;
   padding: 10px 18px; background: var(--verde); color: white;
   border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
   cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background .2s;
@@ -343,6 +348,7 @@ tr:hover td { background: #f5f5f0; }
 }
 .modal-overlay.open { display: flex; }
 .modal {
+  animation: fadeIn .25s ease;
   background: var(--blanco); border-radius: 16px; width: 100%;
   max-width: 560px; max-height: 90vh; overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0,0,0,0.3);
@@ -584,6 +590,26 @@ window.addEventListener("online", ()=>{
 });
 
 </script>
+
+<style>
+body.dark {
+  background:#121212;
+  color:#eee;
+}
+body.dark .card,
+body.dark .stat-card,
+body.dark .sector-card,
+body.dark .modal {
+  background:#1e1e1e;
+  color:#eee;
+}
+</style>
+<script>
+function toggleDark(){
+  document.body.classList.toggle('dark');
+}
+</script>
+
 </head>
 <body>
 
@@ -1854,7 +1880,7 @@ async function guardarEnSheets() {
     });
 
     const r = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Individuos?valueInputOption=RAW`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Individuos!A1?valueInputOption=RAW`,
       {
         method:  'PUT',
         headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
@@ -2330,10 +2356,69 @@ window.addEventListener("online", ()=>{
 
 </script>
 <script>
-// Prevent accidental form reloads
-document.querySelectorAll('form').forEach(f=>{
- f.addEventListener('submit',e=>e.preventDefault());
-});
-</script>
-</body>
+// ===== GUARDADO PRO (UPSERT) =====
+async function guardarEnSheets(){
+  try{
+    if(!accessToken){
+      showToast("Inicia sesión con Google", true);
+      return;
+    }
+
+    const data = await dbGetAll('individuos');
+
+    if(!data.length){
+      showToast("Sin datos", true);
+      return;
+    }
+
+    // Convertir a filas
+    const values = data.map(i=>[
+      i.id,
+      i.nombre,
+      i.cientifico,
+      i.sectorId,
+      i.cantidad,
+      i.estado,
+      i.accion,
+      i.obs,
+      i.lat,
+      i.lng
+    ]);
+
+    // 1. LIMPIAR HOJA (evita duplicados)
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Individuos!A2:Z:clear`, {
+      method:"POST",
+      headers:{ "Authorization":"Bearer "+accessToken }
+    });
+
+    // 2. ESCRIBIR TODO
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Individuos!A2:append?valueInputOption=USER_ENTERED`, {
+      method:"POST",
+      headers:{
+        "Authorization":"Bearer "+accessToken,
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({ values })
+    });
+
+    if(!res.ok) throw new Error("Error API");
+
+    showToast("Sincronización completa ✔");
+
+  }catch(e){
+    console.error(e);
+    showToast("Error sincronizando", true);
+  }
+}
+
+// ===== AUTO SYNC =====
+setInterval(()=>{
+  if(navigator.onLine){
+    guardarEnSheets();
+  }
+}, 60000);
+
+// ===== PREVENT RELOAD =====
+document.addEventListener("submit", e=>e.preventDefault());
+</script></body>
 </html>
