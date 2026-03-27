@@ -194,6 +194,7 @@ body {
 
 /* ── NAV ── */
 .nav {
+  justify-content: center;
   background: var(--blanco);
   display: flex; gap: 0; overflow-x: auto; padding: 0 12px;
   position: fixed;
@@ -1853,7 +1854,7 @@ async function guardarEnSheets() {
     });
 
     const r = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Individuos!A1?valueInputOption=RAW`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Individuos?valueInputOption=RAW`,
       {
         method:  'PUT',
         headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
@@ -2327,6 +2328,12 @@ window.addEventListener("online", ()=>{
   syncInteligente();
 });
 
+</script>
+<script>
+// Prevent accidental form reloads
+document.querySelectorAll('form').forEach(f=>{
+ f.addEventListener('submit',e=>e.preventDefault());
+});
 </script>
 </body>
 </html>
