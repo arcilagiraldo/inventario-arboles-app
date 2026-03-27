@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inventario de Árboles — Guatapé 2025</title>
+<title>Inventario de Árboles — Guatapé 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -85,32 +85,57 @@ window.addEventListener("online", ()=>{
 </script>
 <style>
 :root {
-  --verde: #2d6a4f;
-  --verde-claro: #52b788;
-  --verde-oscuro: #1b4332;
-  --crema: #f8f4ec;
-  --cafe: #6b4c2a;
-  --cafe-claro: #c9a97a;
-  --blanco: #ffffff;
-  --gris: #e8e4dc;
-  --gris-texto: #5a5550;
-  --negro: #1a1a18;
-  --rojo: #c1121f;
-  --amarillo: #e9c46a;
-  --semaforo-verde: #40916c;
-  --semaforo-amarillo: #f4a261;
-  --semaforo-rojo: #e63946;
-  --sombra: 0 4px 24px rgba(27,67,50,0.10);
-  --radio: 12px;
+  --gradiente: linear-gradient(135deg, #1b4332, #2d6a4f, #52b788);
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
+
 body {
-  font-family: 'DM Sans', sans-serif;
-  background: var(--crema);
-  color: var(--negro);
-  min-height: 100vh;
-  overflow-x: hidden;
+  background: linear-gradient(180deg,#f8f4ec,#eef7f1);
 }
+
+/* HEADER PRO */
+.header {
+  background: var(--gradiente);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+}
+
+/* TARJETAS MODERNAS */
+.stat-card, .sector-card, .config-card {
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,0.85);
+  border-radius: 16px;
+  transition: all .25s ease;
+}
+.stat-card:hover, .sector-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+/* BOTONES PRO */
+.btn-primary {
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  transition: all .2s ease;
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+}
+
+/* NAV CENTRADA */
+.nav {
+  justify-content:center;
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,0.85);
+}
+
+/* ANIMACIÓN */
+@keyframes fadeIn {
+  from {opacity:0; transform:translateY(10px);}
+  to {opacity:1; transform:translateY(0);}
+}
+.main > div {
+  animation: fadeIn .3s ease;
+}
+</style>
 
 /* ── LOGIN ── */
 #login-screen {
