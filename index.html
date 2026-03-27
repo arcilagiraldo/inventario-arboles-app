@@ -119,9 +119,13 @@ body {
 
 /* ── NAV ── */
 .nav {
-  background: var(--blanco); border-bottom: 2px solid var(--gris);
+  background: var(--blanco);
   display: flex; gap: 0; overflow-x: auto; padding: 0 12px;
-  position: sticky; top: 62px; z-index: 999;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  border-top: 2px solid var(--gris);
+  z-index: 999;
 }
 .nav-btn {
   padding: 14px 18px; border: none; background: transparent;
@@ -133,7 +137,7 @@ body {
 .nav-btn:hover:not(.active) { color: var(--negro); }
 
 /* ── MAIN ── */
-.main { flex: 1; padding: 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
+.main { flex: 1; padding: 24px; padding-bottom:80px; max-width: 1200px; margin: 0 auto; width: 100%; }
 
 /* ── DASHBOARD ── */
 .dashboard-grid {
@@ -814,6 +818,26 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 <div class="toast" id="toast"></div>
 
 <script>
+
+// ===== FIX FOTOS CRASH =====
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.getElementById("ind-fotos");
+  if(input){
+    input.addEventListener("change", e=>{
+      const files = Array.from(e.target.files);
+      files.forEach(file=>{
+        const reader = new FileReader();
+        reader.onload = ev=>{
+          pendingFotos.push(ev.target.result);
+          renderFotoPreview();
+        };
+        reader.readAsDataURL(file);
+      });
+      e.target.value="";
+    });
+  }
+});
+
 // ══════════════════════════════════════════════
 //  ESTADO GLOBAL
 // ══════════════════════════════════════════════
