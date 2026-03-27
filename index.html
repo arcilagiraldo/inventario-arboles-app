@@ -585,41 +585,39 @@ window.addEventListener("online", ()=>{
 </script>
 
 <style>
-:root{
-  --grad: linear-gradient(135deg,#1b4332,#2d6a4f,#52b788);
+#login-screen {
+  background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)),
+              url('https://images.unsplash.com/photo-1597262975002-c5c3b14bbd62');
+  background-size: cover;
+  background-position: center;
 }
-body{
-  background: linear-gradient(180deg,#f8f4ec,#eef7f1);
+.login-card {
+  backdrop-filter: blur(14px);
+  background: rgba(255,255,255,0.9);
+  border-radius: 20px;
 }
-.header{
-  background: var(--grad);
-  box-shadow: 0 6px 24px rgba(0,0,0,.25);
+.login-logo {
+  font-size: 56px;
 }
-.nav{
+</style>
+
+
+<style>
+.nav {
   justify-content: center;
-  backdrop-filter: blur(12px);
-  background: rgba(255,255,255,.88);
+  backdrop-filter: blur(10px);
+  background: rgba(255,255,255,0.85);
 }
-.stat-card, .sector-card, .config-card{
-  backdrop-filter: blur(12px);
-  background: rgba(255,255,255,.88);
+.header {
+  background: linear-gradient(135deg,#1b4332,#2d6a4f,#52b788);
+}
+.stat-card, .sector-card {
   border-radius: 16px;
-  transition: all .2s ease;
+  transition: .2s;
 }
-.stat-card:hover, .sector-card:hover{
+.stat-card:hover, .sector-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 34px rgba(0,0,0,.18);
-}
-.btn-primary{
-  border-radius: 12px;
-  box-shadow: 0 6px 18px rgba(0,0,0,.25);
-}
-@keyframes fadeIn{
-  from{opacity:0; transform:translateY(10px);}
-  to{opacity:1; transform:translateY(0);}
-}
-.main > div{
-  animation: fadeIn .3s ease;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 </style>
 
@@ -1460,7 +1458,7 @@ async function renderMapa() {
 
   if (!mapaLeaflet) {
     mapaLeaflet = L.map('mapa').setView([6.2320, -75.1540], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       attribution: '© OpenStreetMap contributors', maxZoom: 19
     }).addTo(mapaLeaflet);
   } else {
