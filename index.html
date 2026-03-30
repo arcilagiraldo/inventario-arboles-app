@@ -2440,7 +2440,7 @@ async function syncAll(){
 
     const res = await gapi.client.sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: "individuos!A1",
+      range: "Individuos!A1",
       valueInputOption: "RAW",
       resource: { values }
     });
