@@ -631,6 +631,7 @@ body {
 }
 </style>
 
+<script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
 
@@ -1745,22 +1746,39 @@ function saveToSheets(data) {
 // ══════════════════════════════════════════════
 //  SYNC (Apps Script)
 // ══════════════════════════════════════════════
-async function syncAll() {
-  const url = getCfg('gs_url', '');
-  if (!url) return;
-  showSyncStatus('Sincronizando con Google Sheets…');
-  try {
-    const sectores        = await dbGetAll('sectores');
-    const individuos      = await dbGetAll('individuos');
-    const indsSanitized   = individuos.map(i=>({...i, fotos: (i.fotos||[]).length + ' foto(s)'}));
-    const body = JSON.stringify({ action:'sync', sectores, individuos: indsSanitized });
-    const res  = await fetch(url, { method:'POST', body, headers:{'Content-Type':'application/json'} });
-    const json = await res.json();
-    if (json.status === 'ok') showToast('☁️ Sincronizado con Google Sheets','ok');
-    else showToast('Error al sincronizar: ' + (json.error||''),'err');
-  } catch(e) {
-    showToast('No se pudo conectar con Google Sheets','err');
+
+async function syncAll(){
+
+  if(!accessToken){
+    autorizarSheets();
+    alert("Autoriza acceso a Google Sheets");
+    return;
   }
+
+  try{
+
+    const datos = [
+      ["ID","Nombre","Especie"],
+      ["1","Árbol prueba","Roble"]
+    ];
+
+    await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "individuos!A1",
+      valueInputOption: "RAW",
+      resource: {
+        values: datos
+      }
+    });
+
+    showToast("Datos sincronizados correctamente");
+
+  }catch(e){
+    console.error(e);
+    showToast("Error en sincronización", true);
+  }
+}
+
   hideSyncStatus();
 }
 
@@ -2395,6 +2413,42 @@ function renderMapa(){
 
   L.control.layers(baseMaps).addTo(window.mapaLeaflet);
 }
+</script>
+
+
+<script>
+const CLIENT_ID = "988747898790-tlb1j75qs538nm25nmter81e2jpbh44k.apps.googleusercontent.com";
+const API_KEY = "AIzaSyA3feItXA3juB2OVP8-6HKrqjk4pYTWgFY";
+const SPREADSHEET_ID = "https://docs.google.com/spreadsheets/d/14FHU748jnHQGLnHnxqopopXpz_IzFj5cp1YPBoF5EhM/edit?usp=sharing";
+const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
+
+let tokenClient;
+let accessToken = null;
+
+function initSheets(){
+  gapi.load('client', async () => {
+    await gapi.client.init({
+      apiKey: API_KEY,
+      discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"]
+    });
+  });
+
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      accessToken = resp.access_token;
+    }
+  });
+}
+
+function autorizarSheets(){
+  tokenClient.requestAccessToken();
+}
+
+window.onload = () => {
+  initSheets();
+};
 </script>
 
 </body>
