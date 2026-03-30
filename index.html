@@ -509,6 +509,13 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
+window.onload = () => {
+  if (typeof initGoogleClient === "function") {
+    initGoogleClient();
+  }
+};
+</script>
+<script>
 
 // ===== GPS AUTOMÁTICO =====
 async function getCurrentLocation(){
