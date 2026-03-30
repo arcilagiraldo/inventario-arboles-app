@@ -631,16 +631,6 @@ body {
 }
 </style>
 
-
-<style>
-.login-card{
- background: transparent !important;
- backdrop-filter:none !important;
- border:none !important;
- box-shadow:none !important;
-}
-</style>
-
 </head>
 <body>
 
@@ -1911,7 +1901,7 @@ async function guardarEnSheets() {
     });
 
     const r = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Individuos!A1!A1?valueInputOption=RAW`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Individuos!A1?valueInputOption=RAW`,
       {
         method:  'PUT',
         headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
@@ -2407,11 +2397,12 @@ function renderMapa(){
 }
 </script>
 
+</body>
+</html>
 
 <script>
 async function asegurarHoja(spreadsheetId, accessToken){
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`;
-  const res = await fetch(url, {
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`,{
     headers:{ "Authorization":"Bearer "+accessToken }
   });
   const data = await res.json();
@@ -2430,6 +2421,3 @@ async function asegurarHoja(spreadsheetId, accessToken){
   }
 }
 </script>
-
-</body>
-</html>
