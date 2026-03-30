@@ -253,10 +253,14 @@ tr:hover td { background: #f5f5f0; }
   font-size: 12px; font-weight: 500; transition: all .15s;
 }
 
-/* ── REORDENAR ── */
-.btn-orden { background: #f0f0e8; color: var(--gris-texto); font-size: 14px; padding: 4px 7px; }
-.btn-orden:hover { background: var(--verde); color: white; }
-.orden-col { white-space: nowrap; display: flex; gap: 2px; }
+
+/* ── DRAG & DROP ORDEN ── */
+.ind-row { cursor: grab; touch-action: pan-y; user-select: none; transition: background .15s; }
+.ind-row.dragging { opacity: 0.4; background: #e8f4e8 !important; }
+.ind-row.drag-over { background: #d8f3dc !important; border-top: 3px solid var(--verde); }
+.drag-handle { font-size: 16px; color: var(--gris-texto); padding: 0 6px; cursor: grab; opacity: 0.5; }
+.ind-row:active .drag-handle { opacity: 1; }
+
 .btn-edit { background: #e8f4f8; color: #1a6b8a; }
 .btn-del { background: #ffe0e3; color: var(--semaforo-rojo); }
 .foto-thumb {
@@ -1192,6 +1196,39 @@ function dbDelete(store, id) {
 }
 
 
+
+// ══════════════════════════════════════════════
+//  BOTÓN ATRÁS ANDROID — no cierra la app
+// ══════════════════════════════════════════════
+function pushNavState(tab) {
+  history.pushState({ tab }, '', '#' + tab);
+}
+
+window.addEventListener('popstate', function(e) {
+  // Cerrar cualquier modal abierto primero
+  const modalesAbiertos = document.querySelectorAll('.modal-overlay.open, #mapa-pin-overlay.open, #foto-modal-overlay.open');
+  if (modalesAbiertos.length > 0) {
+    modalesAbiertos.forEach(m => m.classList.remove('open'));
+    history.pushState({}, '', window.location.href); // re-push para no salir
+    return;
+  }
+  // Si estamos en detalle de sector, volver a sectores
+  const detalle = document.getElementById('view-sector-detail');
+  if (detalle && detalle.style.display !== 'none') {
+    showTab('sectores');
+    history.pushState({ tab: 'sectores' }, '', '#sectores');
+    return;
+  }
+  // Si estamos en la app, mantenernos en dashboard
+  if (currentRole) {
+    showTab('dashboard');
+    history.pushState({ tab: 'dashboard' }, '', '#dashboard');
+    return;
+  }
+  // Si estamos en login, no salir — hacer nada
+  history.pushState({}, '', window.location.href);
+});
+
 // ══════════════════════════════════════════════
 //  PERSISTENCIA DE SESIÓN (evita cierre al recargar)
 // ══════════════════════════════════════════════
@@ -1260,6 +1297,7 @@ function startApp(role, email) {
   currentRole      = role;
   googleUserEmail  = email;
   saveSession(role, email);
+  history.pushState({ tab: 'dashboard' }, '', '#dashboard');
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display          = 'flex';
   document.getElementById('role-badge').textContent     = role === 'admin' ? '⚙ Admin' : '👁 Visitante';
@@ -1284,6 +1322,7 @@ function doLogout() {
 //  TABS PRINCIPALES
 // ══════════════════════════════════════════════
 function showTab(tab) {
+  if (currentRole) history.pushState({ tab }, '', '#' + tab);
   ['dashboard','sectores','individuos','mapa','config','sector-detail'].forEach(t => {
     const v = document.getElementById('view-' + t);
     if (v) v.style.display = 'none';
@@ -1408,21 +1447,7 @@ async function compressImage(file){
   });
 }
 
-// override handler fotos
-document.addEventListener("DOMContentLoaded", () => {
-  const input = document.getElementById("ind-fotos");
-  if(input){
-    input.addEventListener("change", async e=>{
-      const files = Array.from(e.target.files);
-      for(const file of files){
-        const compressed = await compressImage(file);
-        pendingFotos.push(compressed);
-        renderFotoPreview();
-      }
-      e.target.value="";
-    });
-  }
-});
+// Listener de fotos: consolidado en el bloque GPS+compress (único)
 
 
 // ══════════════════════════════════════════════
@@ -1468,6 +1493,7 @@ async function showSectorDetail(sectorId) {
   const amarillo = inds.filter(i=>i.estado==='amarillo').length;
   const rojo     = inds.filter(i=>i.estado==='rojo').length;
 
+  const _sectorIdForDrag = sectorId;
   document.getElementById('sector-detail-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
       <div>
@@ -1487,8 +1513,8 @@ async function showSectorDetail(sectorId) {
         <thead><tr><th>ID</th><th>Foto</th><th>Nombre Común</th><th>Nombre Científico</th><th>Cantidad</th><th>Estado</th><th>Acción</th><th>Observaciones</th>${currentRole==='admin'?'<th></th>':''}</tr></thead>
         <tbody>
           ${inds.length===0?'<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--gris-texto);">Sin árboles registrados en este sector</td></tr>':
-            inds.map(i=>`<tr>
-              <td>#${i.id}</td>
+            inds.map(i=>`<tr class="ind-row" data-id="${i.id}" draggable="true">
+              <td style="white-space:nowrap;"><span class="drag-handle">⠿</span>#${i.id}</td>
               <td>${fotoThumb(i)}</td>
               <td><b>${i.nombre}</b></td>
               <td style="font-style:italic;color:var(--gris-texto);">${i.cientifico||'—'}</td>
@@ -1496,12 +1522,13 @@ async function showSectorDetail(sectorId) {
               <td>${semaforoHTML(i.estado)}</td>
               <td><span class="accion-badge accion-${i.accion}">${accionLabel(i.accion)}</span></td>
               <td style="max-width:180px;font-size:12px;color:var(--gris-texto);">${i.obs||'—'}</td>
-              ${currentRole==='admin'?`<td style="white-space:nowrap;"><div class="orden-col"><button class="btn-tiny btn-orden" onclick="moverIndividuo(${i.id},-1)" title="Subir">▲</button><button class="btn-tiny btn-orden" onclick="moverIndividuo(${i.id},1)" title="Bajar">▼</button></div></td><td style="white-space:nowrap;"><button class="btn-tiny btn-edit" onclick="openIndividuoModal(${i.id})">✏️</button> <button class="btn-tiny btn-del" onclick="deleteIndividuo(${i.id})">🗑</button></td>`:''}
+              ${currentRole==='admin'?`<td style="white-space:nowrap;"><button class="btn-tiny btn-edit" onclick="openIndividuoModal(${i.id})">✏️</button> <button class="btn-tiny btn-del" onclick="deleteIndividuo(${i.id})">🗑</button> <span style='font-size:13px;color:var(--verde);cursor:pointer;' onclick='abrirMapaPin(${i.id})' title='Ubicar en mapa'>📍</span></td>`:''}
             </tr>`).join('')}
         </tbody>
       </table>
     </div>
   `;
+  if (currentRole === 'admin') setTimeout(() => initDragSector(sectorId), 50);
 }
 
 // ══════════════════════════════════════════════
@@ -1795,6 +1822,94 @@ async function moverIndividuo(id, direccion) {
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 
+
+// ══════════════════════════════════════════════
+//  DRAG & DROP TÁCTIL para ordenar individuos
+// ══════════════════════════════════════════════
+let _dragId       = null;
+let _dragSectorId = null;
+let _touchTimeout = null;
+let _touchStartY  = 0;
+
+function initDragSector(sectorId) {
+  _dragSectorId = sectorId;
+  const tbody = document.querySelector('#sector-detail-content tbody');
+  if (!tbody) return;
+
+  // ── Desktop drag ──
+  tbody.querySelectorAll('.ind-row').forEach(row => {
+    row.addEventListener('dragstart', e => {
+      _dragId = parseInt(row.dataset.id);
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', e => {
+      row.classList.remove('dragging');
+      tbody.querySelectorAll('.ind-row').forEach(r => r.classList.remove('drag-over'));
+    });
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      tbody.querySelectorAll('.ind-row').forEach(r => r.classList.remove('drag-over'));
+      row.classList.add('drag-over');
+    });
+    row.addEventListener('drop', async e => {
+      e.preventDefault();
+      const targetId = parseInt(row.dataset.id);
+      if (_dragId && _dragId !== targetId) {
+        await _swapOrden(_dragId, targetId, sectorId);
+      }
+    });
+
+    // ── Táctil: long-press para activar drag ──
+    row.addEventListener('touchstart', e => {
+      _touchStartY = e.touches[0].clientY;
+      _touchTimeout = setTimeout(() => {
+        _dragId = parseInt(row.dataset.id);
+        row.classList.add('dragging');
+        navigator.vibrate && navigator.vibrate(40);
+      }, 500);
+    }, { passive: true });
+
+    row.addEventListener('touchmove', e => {
+      if (!_dragId) { clearTimeout(_touchTimeout); return; }
+      const touch = e.touches[0];
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetRow = el && el.closest('.ind-row');
+      tbody.querySelectorAll('.ind-row').forEach(r => r.classList.remove('drag-over'));
+      if (targetRow && targetRow !== row) targetRow.classList.add('drag-over');
+    }, { passive: true });
+
+    row.addEventListener('touchend', async e => {
+      clearTimeout(_touchTimeout);
+      if (!_dragId) return;
+      const touch = e.changedTouches[0];
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetRow = el && el.closest('.ind-row');
+      tbody.querySelectorAll('.ind-row').forEach(r => { r.classList.remove('dragging'); r.classList.remove('drag-over'); });
+      if (targetRow) {
+        const targetId = parseInt(targetRow.dataset.id);
+        if (targetId && _dragId !== targetId) {
+          await _swapOrden(_dragId, targetId, sectorId);
+        }
+      }
+      _dragId = null;
+    });
+  });
+}
+
+async function _swapOrden(idA, idB, sectorId) {
+  const todos = await dbGetAll('individuos');
+  const indA = todos.find(i => i.id === idA);
+  const indB = todos.find(i => i.id === idB);
+  if (!indA || !indB) return;
+  const tmp = indA.orden !== undefined ? indA.orden : idA;
+  indA.orden = indB.orden !== undefined ? indB.orden : idB;
+  indB.orden = tmp;
+  await dbPut('individuos', indA);
+  await dbPut('individuos', indB);
+  showSectorDetail(sectorId);
+}
+
 // ══════════════════════════════════════════════
 //  MAPA PIN — ubicar árbol manualmente
 // ══════════════════════════════════════════════
@@ -1802,55 +1917,118 @@ let mapaPinLeaflet = null;
 let pinMarker      = null;
 let pinLatLng      = null;
 
-function abrirMapaPin() {
-  document.getElementById('mapa-pin-overlay').classList.add('open');
-  setTimeout(() => {
-    if (!mapaPinLeaflet) {
+function abrirMapaPin(indId) {
+  // Guardar id del individuo si viene desde sector (fix 5)
+  window._pinIndividuoId = indId || null;
+  const overlay = document.getElementById('mapa-pin-overlay');
+  overlay.classList.add('open');
+
+  // Destruir mapa anterior si existe (evita tile grises)
+  if (mapaPinLeaflet) {
+    mapaPinLeaflet.remove();
+    mapaPinLeaflet = null;
+    pinMarker = null;
+    pinLatLng = null;
+  }
+  document.getElementById('mapa-pin-coords-txt').textContent = 'Toca el mapa para ubicar el árbol';
+  document.getElementById('btn-usar-coords').disabled = true;
+
+  // Esperar a que el modal sea visible y tenga dimensiones reales
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      const mapDiv = document.getElementById('mapa-pin-map');
+      mapDiv.style.height = (window.innerHeight * 0.55) + 'px';
+
       mapaPinLeaflet = L.map('mapa-pin-map', {
-        center: [6.234, -75.159], zoom: 16
+        center: [6.234, -75.159], zoom: 16,
+        zoomControl: true, tap: true
       });
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }).addTo(mapaPinLeaflet);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OSM'
+      }).addTo(mapaPinLeaflet);
+
+      // Tile satélite como capa adicional
+      const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+      L.control.layers({ '🗺 Mapa': mapaPinLeaflet._layers[Object.keys(mapaPinLeaflet._layers)[0]], '🛰 Satélite': sat }).addTo(mapaPinLeaflet);
+
+      mapaPinLeaflet.invalidateSize(true);
+
+      // Si el individuo ya tiene coords, centrar ahí
+      let latVal = '', lngVal = '';
+      if (indId) {
+        // Viene desde sector, buscar coords del individuo
+        dbGetAll('individuos').then(inds => {
+          const ind = inds.find(i => i.id === indId);
+          if (ind && ind.lat && ind.lng) {
+            const ll = L.latLng(parseFloat(ind.lat), parseFloat(ind.lng));
+            mapaPinLeaflet.setView(ll, 18);
+            _colocarPinEnMapa(ll);
+          }
+        });
+      } else {
+        latVal = document.getElementById('ind-lat').value;
+        lngVal = document.getElementById('ind-lng').value;
+        if (latVal && lngVal) {
+          const ll = L.latLng(parseFloat(latVal), parseFloat(lngVal));
+          mapaPinLeaflet.setView(ll, 18);
+          _colocarPinEnMapa(ll);
+        }
+      }
 
       mapaPinLeaflet.on('click', function(e) {
-        pinLatLng = e.latlng;
-        if (pinMarker) mapaPinLeaflet.removeLayer(pinMarker);
-        pinMarker = L.marker(pinLatLng, {
-          icon: L.divIcon({ className: '', html: '<div style="font-size:28px;transform:translate(-50%,-100%);filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">📍</div>', iconSize: [1,1] })
-        }).addTo(mapaPinLeaflet);
-        document.getElementById('mapa-pin-coords-txt').innerHTML =
-          `Lat: <b>${pinLatLng.lat.toFixed(7)}</b> &nbsp; Lng: <b>${pinLatLng.lng.toFixed(7)}</b>`;
-        document.getElementById('btn-usar-coords').disabled = false;
+        _colocarPinEnMapa(e.latlng);
       });
+    }, 250);
+  });
+}
 
-      // Centrar en ubicación actual si disponible
-      const latVal = document.getElementById('ind-lat').value;
-      const lngVal = document.getElementById('ind-lng').value;
-      if (latVal && lngVal) {
-        const ll = L.latLng(parseFloat(latVal), parseFloat(lngVal));
-        mapaPinLeaflet.setView(ll, 18);
-        pinMarker = L.marker(ll, {
-          icon: L.divIcon({ className: '', html: '<div style="font-size:28px;transform:translate(-50%,-100%);filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">📍</div>', iconSize: [1,1] })
-        }).addTo(mapaPinLeaflet);
-        pinLatLng = ll;
-        document.getElementById('mapa-pin-coords-txt').innerHTML =
-          `Lat: <b>${ll.lat.toFixed(7)}</b> &nbsp; Lng: <b>${ll.lng.toFixed(7)}</b>`;
-        document.getElementById('btn-usar-coords').disabled = false;
-      }
-    }
-    mapaPinLeaflet.invalidateSize();
-  }, 100);
+function _colocarPinEnMapa(latlng) {
+  pinLatLng = latlng;
+  if (pinMarker) mapaPinLeaflet.removeLayer(pinMarker);
+  pinMarker = L.marker(pinLatLng, {
+    icon: L.divIcon({
+      className: '',
+      html: '<div style="font-size:32px;line-height:1;transform:translate(-50%,-100%);filter:drop-shadow(0 3px 6px rgba(0,0,0,0.6));">📍</div>',
+      iconSize: [1, 1]
+    })
+  }).addTo(mapaPinLeaflet);
+  document.getElementById('mapa-pin-coords-txt').innerHTML =
+    `Lat: <b>${pinLatLng.lat.toFixed(7)}</b> &nbsp; Lng: <b>${pinLatLng.lng.toFixed(7)}</b>`;
+  document.getElementById('btn-usar-coords').disabled = false;
 }
 
 function cerrarMapaPin() {
   document.getElementById('mapa-pin-overlay').classList.remove('open');
 }
 
-function usarCoordsPin() {
+async function usarCoordsPin() {
   if (!pinLatLng) return;
-  document.getElementById('ind-lat').value = pinLatLng.lat.toFixed(7);
-  document.getElementById('ind-lng').value = pinLatLng.lng.toFixed(7);
-  cerrarMapaPin();
-  showToast('📍 Coordenadas establecidas desde el mapa', 'ok');
+  const lat = pinLatLng.lat.toFixed(7);
+  const lng = pinLatLng.lng.toFixed(7);
+
+  if (window._pinIndividuoId) {
+    // Guardado directo desde sector — actualizar en DB sin abrir modal
+    const todos = await dbGetAll('individuos');
+    const ind = todos.find(i => i.id === window._pinIndividuoId);
+    if (ind) {
+      ind.lat = lat;
+      ind.lng = lng;
+      ind.updatedAt = new Date().toISOString();
+      await dbPut('individuos', ind);
+      cerrarMapaPin();
+      showToast('📍 Ubicación guardada para ' + ind.nombre, 'ok');
+      showSectorDetail(ind.sectorId);
+    }
+  } else {
+    // Desde modal de árbol — llenar los campos
+    document.getElementById('ind-lat').value = lat;
+    document.getElementById('ind-lng').value = lng;
+    cerrarMapaPin();
+    showToast('📍 Coordenadas establecidas desde el mapa', 'ok');
+  }
+  window._pinIndividuoId = null;
 }
 
 // ══════════════════════════════════════════════
