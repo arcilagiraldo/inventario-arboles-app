@@ -1881,31 +1881,12 @@ function copyGASCode() {
 // ══════════════════════════════════════════════
 
 // 1. Guardar en Google Sheets (Sheets API directa)
-async function guardarEnSheets(datos){
-
-  try{
-    const res = await fetch("https://script.google.com/macros/s/REEMPLAZA_CON_TU_URL/exec", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(datos)
-    });
-
-    const data = await res.json();
-
-    if(data.status === "ok"){
-      showToast("Guardado correctamente ✅");
-    } else {
-      console.error(data);
-      showToast("Error al guardar", true);
-    }
-
-  }catch(e){
-    console.error(e);
-    showToast("Error de conexión", true);
+async function guardarEnSheets() {
+  const res = document.getElementById('export-result');
+  if (!accessToken) {
+    res.innerHTML = '<span style="color:var(--rojo)">❌ Primero inicia sesión con Google (pestaña Drive)</span>';
+    return;
   }
-}
   res.innerHTML = '<span style="color:var(--gris-texto)">⏳ Subiendo datos a Google Sheets…</span>';
   try {
     const sectores   = await dbGetAll('sectores');
