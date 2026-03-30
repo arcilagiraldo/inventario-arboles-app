@@ -1730,7 +1730,106 @@ function doAuth() {
 
 function saveToSheets(data) {
   if (!accessToken) return;
-  fetch(`"REMOVED_SHEETS_API""color:var(--gris-texto)">⏳ Probando conexión…</span>';
+  fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Hoja1!A1:append?valueInputOption=RAW`, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify({ values: [data] })
+  }).then(r => {
+    if (!r.ok) r.json().then(e => console.warn('Sheets error:', e));
+  }).catch(e => console.warn('Sheets fetch error:', e));
+}
+
+// ══════════════════════════════════════════════
+//  SYNC (Apps Script)
+// ══════════════════════════════════════════════
+async function syncAll() {
+  const url = getCfg('gs_url', '');
+  if (!url) return;
+  showSyncStatus('Sincronizando con Google Sheets…');
+  try {
+    const sectores        = await dbGetAll('sectores');
+    const individuos      = await dbGetAll('individuos');
+    const indsSanitized   = individuos.map(i=>({...i, fotos: (i.fotos||[]).length + ' foto(s)'}));
+    const body = JSON.stringify({ action:'sync', sectores, individuos: indsSanitized });
+    const res  = await fetch(url, { method:'POST', body, headers:{'Content-Type':'application/json'} });
+    const json = await res.json();
+    if (json.status === 'ok') showToast('☁️ Sincronizado con Google Sheets','ok');
+    else showToast('Error al sincronizar: ' + (json.error||''),'err');
+  } catch(e) {
+    showToast('No se pudo conectar con Google Sheets','err');
+  }
+  hideSyncStatus();
+}
+
+function showSyncStatus(msg) {
+  const el = document.getElementById('sync-status');
+  document.getElementById('sync-msg').textContent = msg;
+  el.classList.add('show');
+}
+function hideSyncStatus() {
+  setTimeout(()=>document.getElementById('sync-status').classList.remove('show'), 1500);
+}
+
+// ══════════════════════════════════════════════
+//  CONFIGURACIÓN — SUB-PESTAÑAS
+// ══════════════════════════════════════════════
+function showConfigTab(tab) {
+  ['drive','exportar','admins','seguridad','gas'].forEach(t => {
+    const view = document.getElementById('ctab-view-' + t);
+    const btn  = document.getElementById('ctab-' + t);
+    if (view) view.style.display = 'none';
+    if (btn)  btn.classList.remove('active');
+  });
+  const view = document.getElementById('ctab-view-' + tab);
+  const btn  = document.getElementById('ctab-' + tab);
+  if (view) view.style.display = '';
+  if (btn)  btn.classList.add('active');
+
+  if (tab === 'admins')  renderAdminEmails();
+  if (tab === 'gas')     document.getElementById('gas-code-block').textContent = getGASCode();
+  if (tab === 'drive')   updateDriveStatus();
+}
+
+function renderConfig() {
+  // Cargar valores guardados
+  const folderEl = document.getElementById('drive-folder-id');
+  const gsUrlEl  = document.getElementById('gs-url');
+  if (folderEl) folderEl.value = getCfg('drive_folder_id', '');
+  if (gsUrlEl)  gsUrlEl.value  = getCfg('gs_url', '');
+  // Limpiar resultado de exportar
+  const expRes = document.getElementById('export-result');
+  if (expRes) expRes.innerHTML = '';
+  // Mostrar la pestaña Drive al entrar
+  showConfigTab('drive');
+}
+
+function updateDriveStatus() {
+  const dot  = document.getElementById('drive-dot');
+  const text = document.getElementById('drive-status-text');
+  if (!dot || !text) return;
+  if (accessToken) {
+    dot.className    = 'drive-dot connected';
+    text.textContent = '✅ Conectado' + (googleUserEmail ? ' como ' + googleUserEmail : '') + ' — listo para sincronizar';
+  } else {
+    dot.className    = 'drive-dot disconnected';
+    text.textContent = 'No conectado — inicia sesión para sincronizar';
+  }
+}
+
+function saveDriveConfig() {
+  setCfg('drive_folder_id', document.getElementById('drive-folder-id').value.trim());
+  setCfg('gs_url',          document.getElementById('gs-url').value.trim());
+  showToast('✅ Configuración guardada','ok');
+}
+
+async function testGS() {
+  const url = getCfg('gs_url','');
+  if (!url) { showToast('Primero guarda la URL de Apps Script','err'); return; }
+  const el = document.getElementById('gs-test-result');
+  el.innerHTML = '<span style="color:var(--gris-texto)">⏳ Probando conexión…</span>';
   try {
     const res  = await fetch(url + '?action=ping');
     const json = await res.json();
@@ -1782,11 +1881,15 @@ function copyGASCode() {
 // ══════════════════════════════════════════════
 
 // 1. Guardar en Google Sheets (Sheets API directa)
-
 async function guardarEnSheets(datos){
+
   try{
+
     const res = await fetch("https://script.google.com/macros/s/REEMPLAZA_CON_TU_URL/exec", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify(datos)
     });
 
@@ -1795,7 +1898,8 @@ async function guardarEnSheets(datos){
     if(data.status === "ok"){
       alert("Guardado correctamente ✅");
     } else {
-      alert("Error al guardar en Apps Script");
+      console.error(data);
+      alert("Error al guardar");
     }
 
   }catch(e){
@@ -1803,7 +1907,6 @@ async function guardarEnSheets(datos){
     alert("Error de conexión");
   }
 }
-
   res.innerHTML = '<span style="color:var(--gris-texto)">⏳ Subiendo datos a Google Sheets…</span>';
   try {
     const sectores   = await dbGetAll('sectores');
@@ -1818,7 +1921,18 @@ async function guardarEnSheets(datos){
     });
 
     const r = await fetch(
-      `"REMOVED_SHEETS_API""color:var(--semaforo-verde)">✅ ${individuos.length} registros guardados en Google Sheets</span>`;
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Individuos!A1?valueInputOption=RAW`,
+      {
+        method:  'PUT',
+        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ values: rows })
+      }
+    );
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.error?.message || 'Error HTTP ' + r.status);
+    }
+    res.innerHTML = `<span style="color:var(--semaforo-verde)">✅ ${individuos.length} registros guardados en Google Sheets</span>`;
     showToast('☁️ Datos guardados en Sheets','ok');
   } catch(e) {
     res.innerHTML = `<span style="color:var(--rojo)">❌ Error: ${e.message}</span>`;
