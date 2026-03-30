@@ -2448,6 +2448,8 @@ async function syncAll(){
       discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
     });
 
+    gapi.client.setToken({ access_token: accessToken });
+
     const res = await gapi.client.sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: "Individuos!A1",
