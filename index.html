@@ -1746,40 +1746,22 @@ function saveToSheets(data) {
 // ══════════════════════════════════════════════
 //  SYNC (Apps Script)
 // ══════════════════════════════════════════════
-
-async function syncAll(){
-
-  if(!accessToken){
-    autorizarSheets();
-    alert("Autoriza acceso primero");
-    return;
+async function syncAll() {
+  const url = getCfg('gs_url', '');
+  if (!url) return;
+  showSyncStatus('Sincronizando con Google Sheets…');
+  try {
+    const sectores        = await dbGetAll('sectores');
+    const individuos      = await dbGetAll('individuos');
+    const indsSanitized   = individuos.map(i=>({...i, fotos: (i.fotos||[]).length + ' foto(s)'}));
+    const body = JSON.stringify({ action:'sync', sectores, individuos: indsSanitized });
+    const res  = await fetch(url, { method:'POST', body, headers:{'Content-Type':'application/json'} });
+    const json = await res.json();
+    if (json.status === 'ok') showToast('☁️ Sincronizado con Google Sheets','ok');
+    else showToast('Error al sincronizar: ' + (json.error||''),'err');
+  } catch(e) {
+    showToast('No se pudo conectar con Google Sheets','err');
   }
-
-  try{
-
-    const values = [
-      ["ID","Nombre","Especie"],
-      ["1","Árbol prueba","Roble"]
-    ];
-
-    const response = await gapi.client.sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "individuos!A1",
-      valueInputOption: "RAW",
-      resource: {
-        values: values
-      }
-    });
-
-    console.log(response);
-    alert("Datos enviados correctamente 🚀");
-
-  }catch(error){
-    console.error("ERROR REAL:", error);
-    alert("Error al sincronizar (ver consola)");
-  }
-}
-
   hideSyncStatus();
 }
 
@@ -2413,6 +2395,63 @@ function renderMapa(){
   });
 
   L.control.layers(baseMaps).addTo(window.mapaLeaflet);
+}
+</script>
+
+
+<script>
+// ===== GOOGLE SHEETS SEGURO (NO ROMPE APP) =====
+const API_KEY = "PEGA_TU_API_KEY_AQUI";
+const CLIENT_ID = "988747898790-tlb1j75qs538nm25nmter81e2jpbh44k.apps.googleusercontent.com";
+const SPREADSHEET_ID = "PEGA_TU_ID_SHEET_AQUI";
+const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
+
+let accessToken = null;
+
+function autorizarSheets(){
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (tokenResponse)=>{
+      accessToken = tokenResponse.access_token;
+      console.log("Token OK");
+    }
+  });
+  client.requestAccessToken();
+}
+
+async function syncAll(){
+  if(!accessToken){
+    autorizarSheets();
+    alert("Autoriza acceso primero");
+    return;
+  }
+
+  try{
+    const values = [
+      ["ID","Nombre","Especie"],
+      ["1","Árbol prueba","Roble"]
+    ];
+
+    await gapi.client.init({
+      apiKey: API_KEY,
+      discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
+    });
+
+    const res = await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "individuos!A1",
+      valueInputOption: "RAW",
+      resource: { values }
+    });
+
+    console.log(res);
+    alert("✅ Datos enviados a Sheets");
+
+  }catch(e){
+    console.error(e);
+    alert("Error enviando a Sheets");
+  }
 }
 </script>
 
