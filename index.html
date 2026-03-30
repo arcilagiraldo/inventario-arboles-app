@@ -507,7 +507,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   .config-tab { padding: 8px 11px; font-size: 12px; }
 }
 </style>
-<script src="https://accounts.google.com/gsi/client" async defer>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 // ===== GPS AUTOMÁTICO =====
 async function getCurrentLocation(){
   return new Promise((resolve,reject)=>{
@@ -628,6 +628,36 @@ body {
 }
 .main>div {
   animation:fadeIn .3s ease;
+}
+</style>
+
+
+<style>
+#login-screen{
+  background: linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.65)),
+  url("mguatapensis-img-20220523-120602237-hdr_43300181_20230917045449.webp") center/cover no-repeat;
+}
+
+.login-card{
+  background: transparent !important;
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: none;
+  color: white;
+}
+
+.login-title, .login-sub{
+  color: white !important;
+}
+
+.login-input{
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+
+.login-input::placeholder{
+  color: rgba(255,255,255,0.7);
 }
 </style>
 
