@@ -1884,7 +1884,6 @@ function copyGASCode() {
 async function guardarEnSheets(datos){
 
   try{
-
     const res = await fetch("https://script.google.com/macros/s/REEMPLAZA_CON_TU_URL/exec", {
       method: "POST",
       headers: {
@@ -1896,15 +1895,15 @@ async function guardarEnSheets(datos){
     const data = await res.json();
 
     if(data.status === "ok"){
-      alert("Guardado correctamente ✅");
+      showToast("Guardado correctamente ✅");
     } else {
       console.error(data);
-      alert("Error al guardar");
+      showToast("Error al guardar", true);
     }
 
   }catch(e){
     console.error(e);
-    alert("Error de conexión");
+    showToast("Error de conexión", true);
   }
 }
   res.innerHTML = '<span style="color:var(--gris-texto)">⏳ Subiendo datos a Google Sheets…</span>';
