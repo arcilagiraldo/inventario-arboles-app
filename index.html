@@ -7,7 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
 // ===== GPS AUTOMÁTICO =====
 async function getCurrentLocation(){
   return new Promise((resolve,reject)=>{
@@ -507,82 +508,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   .config-tab { padding: 8px 11px; font-size: 12px; }
 }
 </style>
-<script src="https://accounts.google.com/gsi/client" async defer>
-// ===== GPS AUTOMÁTICO =====
-async function getCurrentLocation(){
-  return new Promise((resolve,reject)=>{
-    if(!navigator.geolocation){
-      resolve(null);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      pos=>resolve({
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude
-      }),
-      ()=>resolve(null),
-      {enableHighAccuracy:true, timeout:5000}
-    );
-  });
-}
-
-// ===== FOTO + GPS =====
-document.addEventListener("DOMContentLoaded", () => {
-  const input = document.getElementById("ind-fotos");
-  if(input){
-    input.addEventListener("change", async e=>{
-      const files = Array.from(e.target.files);
-      const location = await getCurrentLocation();
-
-      if(location){
-        document.getElementById('ind-lat').value = location.lat;
-        document.getElementById('ind-lng').value = location.lng;
-      }
-
-      for(const file of files){
-        const compressed = await compressImage(file);
-        pendingFotos.push(compressed);
-        renderFotoPreview();
-      }
-      e.target.value="";
-    });
-  }
-});
-
-// ===== SYNC INTELIGENTE OFFLINE =====
-function isOnline(){
-  return navigator.onLine;
-}
-
-async function syncInteligente(){
-  if(!isOnline()){
-    showToast("Sin conexión. Guardado local.", true);
-    return;
-  }
-  try{
-    showSyncStatus("Sincronizando...");
-    await syncAll();
-    showToast("Datos sincronizados correctamente");
-  }catch(e){
-    console.error(e);
-    showToast("Error en sincronización", true);
-  }
-}
-
-// reemplaza botón sync
-document.addEventListener("DOMContentLoaded", ()=>{
-  const btn = document.getElementById("sync-btn");
-  if(btn){
-    btn.onclick = syncInteligente;
-  }
-});
-
-// detectar reconexión
-window.addEventListener("online", ()=>{
-  syncInteligente();
-});
-
-</script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 
 <style>
 :root {
@@ -631,7 +557,6 @@ body {
 }
 </style>
 
-<script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
 
@@ -1746,39 +1671,22 @@ function saveToSheets(data) {
 // ══════════════════════════════════════════════
 //  SYNC (Apps Script)
 // ══════════════════════════════════════════════
-
-async function syncAll(){
-
-  if(!accessToken){
-    autorizarSheets();
-    alert("Autoriza acceso a Google Sheets");
-    return;
+async function syncAll() {
+  const url = getCfg('gs_url', '');
+  if (!url) return;
+  showSyncStatus('Sincronizando con Google Sheets…');
+  try {
+    const sectores        = await dbGetAll('sectores');
+    const individuos      = await dbGetAll('individuos');
+    const indsSanitized   = individuos.map(i=>({...i, fotos: (i.fotos||[]).length + ' foto(s)'}));
+    const body = JSON.stringify({ action:'sync', sectores, individuos: indsSanitized });
+    const res  = await fetch(url, { method:'POST', body, headers:{'Content-Type':'application/json'} });
+    const json = await res.json();
+    if (json.status === 'ok') showToast('☁️ Sincronizado con Google Sheets','ok');
+    else showToast('Error al sincronizar: ' + (json.error||''),'err');
+  } catch(e) {
+    showToast('No se pudo conectar con Google Sheets','err');
   }
-
-  try{
-
-    const datos = [
-      ["ID","Nombre","Especie"],
-      ["1","Árbol prueba","Roble"]
-    ];
-
-    await gapi.client.sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "individuos!A1",
-      valueInputOption: "RAW",
-      resource: {
-        values: datos
-      }
-    });
-
-    showToast("Datos sincronizados correctamente");
-
-  }catch(e){
-    console.error(e);
-    showToast("Error en sincronización", true);
-  }
-}
-
   hideSyncStatus();
 }
 
@@ -2319,80 +2227,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// ===== GPS AUTOMÁTICO =====
-async function getCurrentLocation(){
-  return new Promise((resolve,reject)=>{
-    if(!navigator.geolocation){
-      resolve(null);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      pos=>resolve({
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude
-      }),
-      ()=>resolve(null),
-      {enableHighAccuracy:true, timeout:5000}
-    );
-  });
-}
-
-// ===== FOTO + GPS =====
-document.addEventListener("DOMContentLoaded", () => {
-  const input = document.getElementById("ind-fotos");
-  if(input){
-    input.addEventListener("change", async e=>{
-      const files = Array.from(e.target.files);
-      const location = await getCurrentLocation();
-
-      if(location){
-        document.getElementById('ind-lat').value = location.lat;
-        document.getElementById('ind-lng').value = location.lng;
-      }
-
-      for(const file of files){
-        const compressed = await compressImage(file);
-        pendingFotos.push(compressed);
-        renderFotoPreview();
-      }
-      e.target.value="";
-    });
-  }
-});
-
-// ===== SYNC INTELIGENTE OFFLINE =====
-function isOnline(){
-  return navigator.onLine;
-}
-
-async function syncInteligente(){
-  if(!isOnline()){
-    showToast("Sin conexión. Guardado local.", true);
-    return;
-  }
-  try{
-    showSyncStatus("Sincronizando...");
-    await syncAll();
-    showToast("Datos sincronizados correctamente");
-  }catch(e){
-    console.error(e);
-    showToast("Error en sincronización", true);
-  }
-}
-
-// reemplaza botón sync
-document.addEventListener("DOMContentLoaded", ()=>{
-  const btn = document.getElementById("sync-btn");
-  if(btn){
-    btn.onclick = syncInteligente;
-  }
-});
-
-// detectar reconexión
-window.addEventListener("online", ()=>{
-  syncInteligente();
-});
-
 </script>
 
 <script>
@@ -2413,42 +2247,6 @@ function renderMapa(){
 
   L.control.layers(baseMaps).addTo(window.mapaLeaflet);
 }
-</script>
-
-
-<script>
-const CLIENT_ID = "988747898790-tlb1j75qs538nm25nmter81e2jpbh44k.apps.googleusercontent.com";
-const API_KEY = "AIzaSyA3feItXA3juB2OVP8-6HKrqjk4pYTWgFY";
-const SPREADSHEET_ID = "https://docs.google.com/spreadsheets/d/14FHU748jnHQGLnHnxqopopXpz_IzFj5cp1YPBoF5EhM/edit?usp=sharing";
-const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
-
-let tokenClient;
-let accessToken = null;
-
-function initSheets(){
-  gapi.load('client', async () => {
-    await gapi.client.init({
-      apiKey: API_KEY,
-      discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"]
-    });
-  });
-
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    callback: (resp) => {
-      accessToken = resp.access_token;
-    }
-  });
-}
-
-function autorizarSheets(){
-  tokenClient.requestAccessToken();
-}
-
-window.addEventListener("load", () => {
-  initSheets();
-});
 </script>
 
 </body>
