@@ -7,8 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
 // ===== GPS AUTOMÁTICO =====
 async function getCurrentLocation(){
   return new Promise((resolve,reject)=>{
@@ -508,7 +507,82 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   .config-tab { padding: 8px 11px; font-size: 12px; }
 }
 </style>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://accounts.google.com/gsi/client" async defer>
+// ===== GPS AUTOMÁTICO =====
+async function getCurrentLocation(){
+  return new Promise((resolve,reject)=>{
+    if(!navigator.geolocation){
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos=>resolve({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude
+      }),
+      ()=>resolve(null),
+      {enableHighAccuracy:true, timeout:5000}
+    );
+  });
+}
+
+// ===== FOTO + GPS =====
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.getElementById("ind-fotos");
+  if(input){
+    input.addEventListener("change", async e=>{
+      const files = Array.from(e.target.files);
+      const location = await getCurrentLocation();
+
+      if(location){
+        document.getElementById('ind-lat').value = location.lat;
+        document.getElementById('ind-lng').value = location.lng;
+      }
+
+      for(const file of files){
+        const compressed = await compressImage(file);
+        pendingFotos.push(compressed);
+        renderFotoPreview();
+      }
+      e.target.value="";
+    });
+  }
+});
+
+// ===== SYNC INTELIGENTE OFFLINE =====
+function isOnline(){
+  return navigator.onLine;
+}
+
+async function syncInteligente(){
+  if(!isOnline()){
+    showToast("Sin conexión. Guardado local.", true);
+    return;
+  }
+  try{
+    showSyncStatus("Sincronizando...");
+    await syncAll();
+    showToast("Datos sincronizados correctamente");
+  }catch(e){
+    console.error(e);
+    showToast("Error en sincronización", true);
+  }
+}
+
+// reemplaza botón sync
+document.addEventListener("DOMContentLoaded", ()=>{
+  const btn = document.getElementById("sync-btn");
+  if(btn){
+    btn.onclick = syncInteligente;
+  }
+});
+
+// detectar reconexión
+window.addEventListener("online", ()=>{
+  syncInteligente();
+});
+
+</script>
 
 <style>
 :root {
@@ -578,7 +652,7 @@ body {
       <input id="visitor-pass" class="login-input" type="password" placeholder="Clave de visitante">
     </div>
     <button class="btn-login" onclick="doLogin()">Ingresar</button>
-    <button class="btn-login-google" onclick="doAuth()">
+    <button class="btn-login-google" onclick="handleGoogleLogin()">
       <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.88l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
       Iniciar sesión con Google
     </button>
@@ -707,7 +781,7 @@ body {
           <p style="font-size:12px;color:var(--gris-texto);margin-bottom:16px;line-height:1.5;">
             Editores autorizados: los correos registrados por el administrador pueden editar. Los demás usuarios solo pueden ver los datos.
           </p>
-          <button class="btn-drive-google" onclick="doAuth()">
+          <button class="btn-drive-google" onclick="handleGoogleLogin()">
             <svg width="18" height="18" viewBox="0 0 48 48" style="flex-shrink:0"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.88l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
             Iniciar sesión con Google
           </button>
@@ -2227,6 +2301,80 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+// ===== GPS AUTOMÁTICO =====
+async function getCurrentLocation(){
+  return new Promise((resolve,reject)=>{
+    if(!navigator.geolocation){
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos=>resolve({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude
+      }),
+      ()=>resolve(null),
+      {enableHighAccuracy:true, timeout:5000}
+    );
+  });
+}
+
+// ===== FOTO + GPS =====
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.getElementById("ind-fotos");
+  if(input){
+    input.addEventListener("change", async e=>{
+      const files = Array.from(e.target.files);
+      const location = await getCurrentLocation();
+
+      if(location){
+        document.getElementById('ind-lat').value = location.lat;
+        document.getElementById('ind-lng').value = location.lng;
+      }
+
+      for(const file of files){
+        const compressed = await compressImage(file);
+        pendingFotos.push(compressed);
+        renderFotoPreview();
+      }
+      e.target.value="";
+    });
+  }
+});
+
+// ===== SYNC INTELIGENTE OFFLINE =====
+function isOnline(){
+  return navigator.onLine;
+}
+
+async function syncInteligente(){
+  if(!isOnline()){
+    showToast("Sin conexión. Guardado local.", true);
+    return;
+  }
+  try{
+    showSyncStatus("Sincronizando...");
+    await syncAll();
+    showToast("Datos sincronizados correctamente");
+  }catch(e){
+    console.error(e);
+    showToast("Error en sincronización", true);
+  }
+}
+
+// reemplaza botón sync
+document.addEventListener("DOMContentLoaded", ()=>{
+  const btn = document.getElementById("sync-btn");
+  if(btn){
+    btn.onclick = syncInteligente;
+  }
+});
+
+// detectar reconexión
+window.addEventListener("online", ()=>{
+  syncInteligente();
+});
+
 </script>
 
 <script>
@@ -2249,5 +2397,21 @@ function renderMapa(){
 }
 </script>
 
+
+<script>
+function handleGoogleLogin(){
+  try{
+    if (typeof google === "undefined" || !google.accounts){
+      alert("Google no cargó correctamente");
+      return;
+    }
+    google.accounts.id.prompt();
+  }catch(e){
+    console.error(e);
+    alert("Error iniciando sesión");
+  }
+}
+</script>
 </body>
+
 </html>
