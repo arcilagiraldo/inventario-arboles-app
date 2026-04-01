@@ -499,13 +499,56 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 
 /* ── RESPONSIVE ── */
-@media (max-width: 600px) {
-  .main { padding: 16px; }
+/* Tablet */
+@media (max-width: 900px) {
+  .main { padding: 16px 12px; }
   .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
-  .form-row { grid-template-columns: 1fr; }
-  .header-title { font-size: 14px; }
-  .sectores-grid { grid-template-columns: 1fr; }
-  .config-tab { padding: 8px 11px; font-size: 12px; }
+  .sectores-grid  { grid-template-columns: repeat(2, 1fr); }
+  .table-wrap     { font-size: 13px; }
+  .modal          { max-width: 95vw; }
+}
+/* Móvil */
+@media (max-width: 600px) {
+  .main           { padding: 12px 8px; }
+  .dashboard-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .sectores-grid  { grid-template-columns: 1fr; }
+  .form-row       { grid-template-columns: 1fr; }
+  .header         { padding: 0 12px; height: 54px; }
+  .header-title   { font-size: 13px; }
+  .nav            { gap: 0; overflow-x: auto; padding: 0 4px; }
+  .nav-btn        { padding: 10px 10px; font-size: 11px; white-space: nowrap; }
+  .modal          { max-width: 100vw; margin: 0; border-radius: 16px 16px 0 0;
+                    position: fixed; bottom: 0; left: 0; right: 0; max-height: 92vh; overflow-y: auto; }
+  .modal-overlay  { align-items: flex-end; }
+  .config-tab     { padding: 8px 9px; font-size: 11px; }
+  .priority-row   { gap: 6px; }
+  .priority-card  { padding: 10px 8px; }
+  .priority-num   { font-size: 22px; }
+  .table-wrap     { font-size: 12px; overflow-x: auto; }
+  .table-wrap table { min-width: 500px; }
+  .section-title  { font-size: 16px; }
+  #mapa           { height: 340px !important; }
+  .export-btn-row { margin-bottom: 8px; }
+  .btn-export     { padding: 12px 14px; font-size: 13px; }
+  .stat-card      { padding: 14px 10px; }
+  .stat-value     { font-size: 26px; }
+  /* ocultar columnas menos importantes en móvil */
+  .table-wrap th:nth-child(4),
+  .table-wrap td:nth-child(4),
+  .table-wrap th:nth-child(7),
+  .table-wrap td:nth-child(7) { display: none; }
+}
+/* Mini mapa en modal */
+#mini-mapa-pick {
+  height: 220px;
+  border-radius: 10px;
+  border: 2px solid var(--verde-claro);
+  margin-top: 8px;
+  cursor: crosshair;
+}
+.pick-map-hint {
+  font-size: 11px; color: var(--gris-texto);
+  text-align: center; margin-top: 4px;
 }
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -891,15 +934,19 @@ body {
         <textarea class="form-control" id="ind-obs" placeholder="Estado, enfermedades, intervenciones…"></textarea>
       </div>
       <hr class="form-divider">
-      <div class="form-row">
-        <div class="form-group">
-          <label>Latitud</label>
-          <input class="form-control" id="ind-lat" type="number" step="any" placeholder="6.2345678">
-          <button class="btn-secondary" style="margin-top:6px; padding:7px 10px; font-size:12px; width:100%;" onclick="getGPS()">📍 Usar mi ubicación</button>
+      <div class="form-group">
+        <label>📍 Ubicación GPS</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input class="form-control" id="ind-lat" type="number" step="any" placeholder="Latitud  ej. 6.2345678" style="flex:1;min-width:120px;">
+          <input class="form-control" id="ind-lng" type="number" step="any" placeholder="Longitud  ej. -75.1234567" style="flex:1;min-width:120px;">
         </div>
-        <div class="form-group">
-          <label>Longitud</label>
-          <input class="form-control" id="ind-lng" type="number" step="any" placeholder="-75.1234567">
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+          <button class="btn-secondary" style="flex:1;padding:8px 10px;font-size:12px;" onclick="getGPS()">📡 Usar mi ubicación actual</button>
+          <button class="btn-secondary" style="flex:1;padding:8px 10px;font-size:12px;" onclick="toggleMiniMapa()">🗺️ Seleccionar en mapa</button>
+        </div>
+        <div id="mini-mapa-wrap" style="display:none;">
+          <div id="mini-mapa-pick"></div>
+          <p class="pick-map-hint">Toca o haz clic en el mapa para marcar la posición del árbol</p>
         </div>
       </div>
       <div class="form-group">
@@ -1351,7 +1398,7 @@ async function showSectorDetail(sectorId) {
     if (expandido) {
       subFilas = hijosDeEste.map(function(h, idx) {
         const coordH = (h.lat&&h.lng)
-          ? '<small style="color:var(--verde-claro);font-size:10px;">📍' + parseFloat(h.lat).toFixed(5) + ', ' + parseFloat(h.lng).toFixed(5) + '</small>'
+          ? '<button onclick="verEnMapa(' + parseFloat(h.lat) + ',' + parseFloat(h.lng) + ',\''+h.nombre+'\',\''+h.estado+'\')" style="background:var(--verde);color:#fff;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;margin-top:2px;">📍 Ver en mapa</button>'
           : '<small style="color:var(--gris-texto);font-size:10px;">Sin coordenadas</small>';
         return '<tr style="background:#e8f5ee;border-left:3px solid var(--verde-claro);">'
           + '<td style="font-size:11px;color:var(--gris-texto);padding-left:16px;">↳ #' + h.id + '</td>'
@@ -1409,40 +1456,48 @@ async function showSectorDetail(sectorId) {
     </table></div>`;
 }
 
-// Alterna expansión de un grupo en el detalle de sector
-function toggleExpand(raizId, sectorId) {
-  expandedGroups[raizId] = !expandedGroups[raizId];
-  showSectorDetail(sectorId);
+// Alterna expansión — si no hay hijos los crea automáticamente
+async function toggleExpand(raizId, sectorId) {
+  if (expandedGroups[raizId]) {
+    // Colapsar
+    expandedGroups[raizId] = false;
+    showSectorDetail(sectorId);
+  } else {
+    // Expandir: crear hijos si no existen
+    await expandirGrupo(raizId, sectorId);
+  }
 }
 
-// Crea N registros hijos individuales a partir de un registro agrupado
+// Crea N registros hijos individuales Y los muestra inmediatamente
 async function expandirGrupo(raizId, sectorId) {
   const individuos = await dbGetAll('individuos');
   const raiz = individuos.find(function(i){ return i.id===raizId; });
   if (!raiz) return;
   const cantidad = parseInt(raiz.cantidad)||1;
-  if (!confirm('¿Crear ' + cantidad + ' registros individuales para "' + raiz.nombre + '"?\nEl registro original quedará como referencia de grupo.')) return;
-
-  for (let n=1; n<=cantidad; n++) {
-    const hijo = {
-      nombre:     raiz.nombre,
-      cientifico: raiz.cientifico||'',
-      sectorId:   raiz.sectorId,
-      cantidad:   1,
-      estado:     raiz.estado,
-      accion:     raiz.accion,
-      obs:        raiz.obs||'',
-      lat:        n===1 ? (raiz.lat||'') : '',
-      lng:        n===1 ? (raiz.lng||'') : '',
-      fotos:      n===1 ? (raiz.fotos||[]) : [],
-      parentId:   raizId,
-      codigo:     '',
-      updatedAt:  new Date().toISOString()
-    };
-    await dbPut('individuos', hijo);
+  // Si ya tiene hijos, solo expandir vista
+  const hijosExistentes = individuos.filter(h=>h.parentId===raizId);
+  if (hijosExistentes.length === 0) {
+    for (let n=1; n<=cantidad; n++) {
+      const hijo = {
+        nombre:     raiz.nombre,
+        cientifico: raiz.cientifico||'',
+        sectorId:   raiz.sectorId,
+        cantidad:   1,
+        estado:     raiz.estado,
+        accion:     raiz.accion,
+        obs:        raiz.obs||'',
+        lat:        n===1 ? (raiz.lat||'') : '',
+        lng:        n===1 ? (raiz.lng||'') : '',
+        fotos:      n===1 ? (raiz.fotos||[]) : [],
+        parentId:   raizId,
+        codigo:     '',
+        updatedAt:  new Date().toISOString()
+      };
+      await dbPut('individuos', hijo);
+    }
+    showToast('✅ ' + cantidad + ' individuos listos para completar', 'ok');
   }
   expandedGroups[raizId] = true;
-  showToast('✅ ' + cantidad + ' individuos creados', 'ok');
   showSectorDetail(sectorId);
 }
 
@@ -1495,7 +1550,7 @@ async function renderTable() {
         <td>${sMap[i.sectorId]||'—'}</td>
         <td>${semaforoHTML(i.estado)}</td>
         <td><span class="accion-badge accion-${i.accion}">${accionLabel(i.accion)}</span></td>
-        <td style="font-size:12px;">${i.lat&&i.lng?`${parseFloat(i.lat).toFixed(5)}, ${parseFloat(i.lng).toFixed(5)}`:'—'}</td>
+        <td style="font-size:12px;">${i.lat&&i.lng?`<button onclick="verEnMapa(${parseFloat(i.lat)},${parseFloat(i.lng)},'${i.nombre.replace(/'/g,"\\'")}','${i.estado}')" style="background:var(--verde);color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;">📍 Ver</button>`:'<span style="color:var(--gris-texto);">—</span>'}</td>
         ${currentRole==='admin'?`<td style="white-space:nowrap;"><button class="btn-tiny btn-edit" onclick="openIndividuoModal(${i.id})">✏️</button> <button class="btn-tiny btn-del" onclick="deleteIndividuo(${i.id})">🗑</button></td>`:'<td></td>'}
       </tr>`).join('');
 }
@@ -1725,7 +1780,116 @@ async function saveSector() {
   syncAll();
 }
 
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  if (id === 'individuo-modal') {
+    const wrap = document.getElementById('mini-mapa-wrap');
+    if (wrap) wrap.style.display = 'none';
+    if (window.miniMapaLeaflet) {
+      window.miniMapaLeaflet.remove();
+      window.miniMapaLeaflet = null;
+      window.miniMapaMarker  = null;
+    }
+  }
+}
+
+// ══════════════════════════════════════════════
+//  MINI-MAPA: clic para ubicar árbol sin ir al sitio
+// ══════════════════════════════════════════════
+function toggleMiniMapa() {
+  const wrap = document.getElementById('mini-mapa-wrap');
+  if (!wrap) return;
+  const abriendo = wrap.style.display === 'none';
+  wrap.style.display = abriendo ? '' : 'none';
+  if (!abriendo) return;
+
+  setTimeout(() => {
+    if (!window.miniMapaLeaflet) {
+      // Centro inicial: coords actuales del árbol o centro de Guatapé
+      const latVal = parseFloat(document.getElementById('ind-lat').value);
+      const lngVal = parseFloat(document.getElementById('ind-lng').value);
+      const clat = (latVal && !isNaN(latVal)) ? latVal : 6.2320;
+      const clng = (lngVal && !isNaN(lngVal)) ? lngVal : -75.1540;
+
+      window.miniMapaLeaflet = L.map('mini-mapa-pick').setView([clat, clng], 17);
+
+      // Capa satélite por defecto — más útil para ubicar árboles exactos
+      const sat   = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'© Esri'});
+      const osm   = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OSM'});
+      sat.addTo(window.miniMapaLeaflet);
+      L.control.layers({'🛰 Satélite': sat, '🗺 Mapa': osm}).addTo(window.miniMapaLeaflet);
+
+      // Marcador si ya hay coords
+      if (latVal && lngVal && !isNaN(latVal) && !isNaN(lngVal)) {
+        window.miniMapaMarker = L.marker([latVal, lngVal], {draggable: true})
+          .addTo(window.miniMapaLeaflet)
+          .bindPopup('📍 Posición guardada').openPopup();
+        window.miniMapaMarker.on('dragend', e => {
+          const p = e.target.getLatLng();
+          document.getElementById('ind-lat').value = p.lat.toFixed(7);
+          document.getElementById('ind-lng').value = p.lng.toFixed(7);
+        });
+      }
+
+      // Clic en el mapa = colocar/mover marcador
+      window.miniMapaLeaflet.on('click', function(e) {
+        document.getElementById('ind-lat').value = e.latlng.lat.toFixed(7);
+        document.getElementById('ind-lng').value = e.latlng.lng.toFixed(7);
+        if (window.miniMapaMarker) {
+          window.miniMapaMarker.setLatLng(e.latlng);
+        } else {
+          window.miniMapaMarker = L.marker(e.latlng, {draggable: true})
+            .addTo(window.miniMapaLeaflet)
+            .bindPopup('📍 Posición marcada').openPopup();
+          window.miniMapaMarker.on('dragend', ev => {
+            const p = ev.target.getLatLng();
+            document.getElementById('ind-lat').value = p.lat.toFixed(7);
+            document.getElementById('ind-lng').value = p.lng.toFixed(7);
+          });
+        }
+        showToast('📍 Posición guardada — arrastra el pin para ajustar', 'ok');
+      });
+
+    } else {
+      window.miniMapaLeaflet.invalidateSize();
+      const latVal = parseFloat(document.getElementById('ind-lat').value);
+      const lngVal = parseFloat(document.getElementById('ind-lng').value);
+      if (latVal && lngVal && !isNaN(latVal)) window.miniMapaLeaflet.setView([latVal, lngVal], 17);
+    }
+  }, 120);
+}
+
+// ══════════════════════════════════════════════
+//  VER ÁRBOL EN MAPA PRINCIPAL
+// ══════════════════════════════════════════════
+async function verEnMapa(lat, lng, nombre, estado) {
+  showTab('mapa');
+  await new Promise(r => setTimeout(r, 350));
+  if (!mapaLeaflet) await renderMapa();
+  await new Promise(r => setTimeout(r, 200));
+  mapaLeaflet.invalidateSize();
+  mapaLeaflet.setView([lat, lng], 19);
+  // Abrir popup del marcador si existe, o crear uno temporal
+  let encontrado = false;
+  mapaLeaflet.eachLayer(l => {
+    if (l instanceof L.CircleMarker) {
+      const p = l.getLatLng();
+      if (Math.abs(p.lat - lat) < 0.00001 && Math.abs(p.lng - lng) < 0.00001) {
+        l.openPopup();
+        encontrado = true;
+      }
+    }
+  });
+  if (!encontrado) {
+    const colorMap = {verde:'#40916c', amarillo:'#f4a261', rojo:'#e63946'};
+    L.circleMarker([lat, lng], {
+      radius:10, fillColor: colorMap[estado]||'#888',
+      color:'#fff', weight:2, fillOpacity:0.9
+    }).addTo(mapaLeaflet)
+      .bindPopup('<b>' + nombre + '</b><br>📍 ' + lat.toFixed(5) + ', ' + lng.toFixed(5))
+      .openPopup();
+  }
+}
 
 // ══════════════════════════════════════════════
 //  GPS
