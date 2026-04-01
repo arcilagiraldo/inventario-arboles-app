@@ -929,9 +929,15 @@ body {
           </select>
         </div>
       </div>
-      <div class="form-group">
-        <label>Observaciones</label>
-        <textarea class="form-control" id="ind-obs" placeholder="Estado, enfermedades, intervenciones…"></textarea>
+      <div class="form-row">
+        <div class="form-group" style="flex:2;">
+          <label>Observaciones</label>
+          <textarea class="form-control" id="ind-obs" placeholder="Estado, enfermedades, intervenciones…"></textarea>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>Código / Placa</label>
+          <input class="form-control" id="ind-codigo" placeholder="ej. GTP-001">
+        </div>
       </div>
       <hr class="form-divider">
       <div class="form-group">
@@ -1686,12 +1692,12 @@ async function openIndividuoModal(id=null, preselectSector=null) {
       document.getElementById('ind-obs').value       = ind.obs||'';
       document.getElementById('ind-lat').value       = ind.lat||'';
       document.getElementById('ind-lng').value       = ind.lng||'';
-      document.getElementById('ind-codigo').value     = ind.codigo||'';
+      const codigoEl = document.getElementById('ind-codigo'); if(codigoEl) codigoEl.value = ind.codigo||'';
       currentEditFotos = ind.fotos||[];
       renderFotoPreview();
     }
   } else {
-    ['ind-nombre','ind-cientifico','ind-obs','ind-lat','ind-lng','ind-codigo'].forEach(id=>document.getElementById(id).value='');
+    ['ind-nombre','ind-cientifico','ind-obs','ind-lat','ind-lng','ind-codigo'].forEach(fid=>{ const el=document.getElementById(fid); if(el) el.value=''; });
     document.getElementById('ind-cantidad').value = 1;
     document.getElementById('ind-estado').value   = 'verde';
     document.getElementById('ind-accion').value   = 'sin-novedad';
@@ -1741,7 +1747,7 @@ async function saveIndividuo() {
     obs:        document.getElementById('ind-obs').value.trim(),
     lat:        document.getElementById('ind-lat').value.trim(),
     lng:        document.getElementById('ind-lng').value.trim(),
-    codigo:     document.getElementById('ind-codigo').value.trim(),
+    codigo:     (document.getElementById('ind-codigo')||{value:''}).value.trim(),
     fotos,
     updatedAt: new Date().toISOString()
   };
