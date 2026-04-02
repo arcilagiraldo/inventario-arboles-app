@@ -1999,9 +1999,28 @@ function doAuth() {
   tokenClient.requestAccessToken({ prompt: '' });
 }
 
-function saveToSheets(data) {
+// Caché del nombre real de la primera hoja
+let _sheetName = null;
+
+async function getFirstSheetName() {
+  if (_sheetName) return _sheetName;
+  try {
+    const r = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,
+      { headers: { 'Authorization': 'Bearer ' + accessToken } }
+    );
+    const j = await r.json();
+    _sheetName = j.sheets[0].properties.title;
+  } catch(e) {
+    _sheetName = 'Hoja 1'; // fallback genérico
+  }
+  return _sheetName;
+}
+
+async function saveToSheets(data) {
   if (!accessToken) return;
-  fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Hoja1!A1:append?valueInputOption=RAW`, {
+  const sheet = await getFirstSheetName();
+  fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheet)}!A1:append?valueInputOption=RAW`, {
     method: 'POST',
     headers: {
       'Authorization': 'Bearer ' + accessToken,
@@ -2171,8 +2190,10 @@ async function guardarEnSheets() {
         (i.fotos||[]).length, i.updatedAt||'']);
     });
 
+    // Detectar nombre real de la hoja para evitar error "Unable to parse range"
+    const sheetName = await getFirstSheetName();
     const r = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Individuos!A1?valueInputOption=RAW`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,
       {
         method:  'PUT',
         headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
