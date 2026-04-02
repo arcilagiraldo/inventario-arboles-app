@@ -929,15 +929,9 @@ body {
           </select>
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group" style="flex:2;">
-          <label>Observaciones</label>
-          <textarea class="form-control" id="ind-obs" placeholder="Estado, enfermedades, intervenciones…"></textarea>
-        </div>
-        <div class="form-group" style="flex:1;">
-          <label>Código / Placa</label>
-          <input class="form-control" id="ind-codigo" placeholder="ej. GTP-001">
-        </div>
+      <div class="form-group">
+        <label>Observaciones</label>
+        <textarea class="form-control" id="ind-obs" placeholder="Estado, enfermedades, intervenciones…"></textarea>
       </div>
       <hr class="form-divider">
       <div class="form-group">
@@ -1393,9 +1387,9 @@ async function showSectorDetail(sectorId) {
       + '<td style="max-width:160px;font-size:12px;color:var(--gris-texto);">' + (r.obs||'—') + '</td>'
       + (currentRole==='admin'
           ? '<td style="white-space:nowrap;">'
-              + '<button class="btn-tiny btn-edit" data-action="edit" data-id="' + r.id + '" style="cursor:pointer;">✏️</button> '
-              + '<button class="btn-tiny btn-del"  data-action="del"  data-id="' + r.id + '" data-sector="' + sectorId + '" style="cursor:pointer;">🗑</button> '
-              + '<button data-action="ubicar" data-id="' + r.id + '" style="background:var(--verde-claro);color:#fff;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;">📍 Ubicar</button>'
+              + '<button class="btn-tiny btn-edit" onclick="openIndividuoModal(' + r.id + ')">✏️</button> '
+              + '<button class="btn-tiny btn-del" onclick="deleteIndividuo(' + r.id + ');showSectorDetail(' + sectorId + ')">🗑</button>'
+              + (expandible && !expandido ? ' <button onclick="expandirGrupo(' + r.id + ',' + sectorId + ')" style="background:var(--verde);color:#fff;border:none;border-radius:5px;padding:2px 6px;cursor:pointer;font-size:10px;" title="Expandir en individuos">✂️</button>' : '')
               + '</td>'
           : '')
       + '</tr>';
@@ -1419,9 +1413,8 @@ async function showSectorDetail(sectorId) {
           + '<td style="max-width:160px;font-size:12px;color:var(--gris-texto);">' + (h.obs||'—') + '</td>'
           + (currentRole==='admin'
               ? '<td style="white-space:nowrap;">'
-                  + '<button class="btn-tiny btn-edit" data-action="edit"   data-id="' + h.id + '" style="cursor:pointer;">✏️</button> '
-                  + '<button class="btn-tiny btn-del"  data-action="del"    data-id="' + h.id + '" data-sector="' + sectorId + '" style="cursor:pointer;">🗑</button> '
-                  + '<button data-action="ubicar" data-id="' + h.id + '" style="background:var(--verde-claro);color:#fff;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;">📍 Ubicar</button>'
+                  + '<button class="btn-tiny btn-edit" onclick="openIndividuoModal(' + h.id + ')">✏️</button> '
+                  + '<button class="btn-tiny btn-del" onclick="deleteIndividuo(' + h.id + ');showSectorDetail(' + sectorId + ')">🗑</button>'
                   + '</td>'
               : '')
           + '</tr>';
@@ -1461,39 +1454,6 @@ async function showSectorDetail(sectorId) {
       <thead><tr><th>ID</th><th>Foto</th><th>Nombre / Código</th><th>Científico</th><th>Cant.</th><th>Estado</th><th>Acción</th><th>Observaciones</th>${currentRole==='admin'?'<th>Acciones</th>':''}</tr></thead>
       <tbody>${tbodyHtml}</tbody>
     </table></div>`;
-}
-
-// ── Delegación de eventos para botones dentro de sector-detail-content ──
-// Soluciona el problema de onclick en innerHTML dinámico
-document.addEventListener('click', async function(e) {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const action  = btn.dataset.action;
-  const id      = parseInt(btn.dataset.id);
-  const sectorId = parseInt(btn.dataset.sector);
-
-  if (action === 'edit') {
-    await openIndividuoModal(id);
-  }
-  if (action === 'del') {
-    const detailView = document.getElementById('view-sector-detail');
-    const enDetalle  = detailView && detailView.style.display !== 'none';
-    await deleteIndividuo(id);
-    if (enDetalle && sectorId) showSectorDetail(sectorId);
-  }
-  if (action === 'ubicar') {
-    await abrirModalUbicar(id);
-  }
-});
-
-// Abre el modal de edición centrado en el mini-mapa para ubicar el árbol
-async function abrirModalUbicar(id) {
-  await openIndividuoModal(id);
-  // Esperar a que el modal abra, luego mostrar el mini-mapa automáticamente
-  setTimeout(() => {
-    const wrap = document.getElementById('mini-mapa-wrap');
-    if (wrap && wrap.style.display === 'none') toggleMiniMapa();
-  }, 300);
 }
 
 // Alterna expansión — si no hay hijos los crea automáticamente
@@ -1692,12 +1652,12 @@ async function openIndividuoModal(id=null, preselectSector=null) {
       document.getElementById('ind-obs').value       = ind.obs||'';
       document.getElementById('ind-lat').value       = ind.lat||'';
       document.getElementById('ind-lng').value       = ind.lng||'';
-      const codigoEl = document.getElementById('ind-codigo'); if(codigoEl) codigoEl.value = ind.codigo||'';
+      document.getElementById('ind-codigo').value     = ind.codigo||'';
       currentEditFotos = ind.fotos||[];
       renderFotoPreview();
     }
   } else {
-    ['ind-nombre','ind-cientifico','ind-obs','ind-lat','ind-lng','ind-codigo'].forEach(fid=>{ const el=document.getElementById(fid); if(el) el.value=''; });
+    ['ind-nombre','ind-cientifico','ind-obs','ind-lat','ind-lng','ind-codigo'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('ind-cantidad').value = 1;
     document.getElementById('ind-estado').value   = 'verde';
     document.getElementById('ind-accion').value   = 'sin-novedad';
@@ -1747,7 +1707,7 @@ async function saveIndividuo() {
     obs:        document.getElementById('ind-obs').value.trim(),
     lat:        document.getElementById('ind-lat').value.trim(),
     lng:        document.getElementById('ind-lng').value.trim(),
-    codigo:     (document.getElementById('ind-codigo')||{value:''}).value.trim(),
+    codigo:     document.getElementById('ind-codigo').value.trim(),
     fotos,
     updatedAt: new Date().toISOString()
   };
