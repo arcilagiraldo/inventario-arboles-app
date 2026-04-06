@@ -28,60 +28,7 @@ async function getCurrentLocation(){
 }
 
 // ===== FOTO + GPS =====
-document.addEventListener("DOMContentLoaded", () => {
-  const input = document.getElementById("ind-fotos");
-  if(input){
-    input.addEventListener("change", async e=>{
-      const files = Array.from(e.target.files);
-      const location = await getCurrentLocation();
-
-      if(location){
-        document.getElementById('ind-lat').value = location.lat;
-        document.getElementById('ind-lng').value = location.lng;
-      }
-
-      for(const file of files){
-        const compressed = await compressImage(file);
-        pendingFotos.push(compressed);
-        renderFotoPreview();
-      }
-      e.target.value="";
-    });
-  }
-});
-
-// ===== SYNC INTELIGENTE OFFLINE =====
-function isOnline(){
-  return navigator.onLine;
-}
-
-async function syncInteligente(){
-  if(!isOnline()){
-    showToast("Sin conexión. Guardado local.", true);
-    return;
-  }
-  try{
-    showSyncStatus("Sincronizando...");
-    await syncAll();
-    showToast("Datos sincronizados correctamente");
-  }catch(e){
-    console.error(e);
-    showToast("Error en sincronización", true);
-  }
-}
-
-// reemplaza botón sync
-document.addEventListener("DOMContentLoaded", ()=>{
-  const btn = document.getElementById("sync-btn");
-  if(btn){
-    btn.onclick = syncInteligente;
-  }
-});
-
-// detectar reconexión
-window.addEventListener("online", ()=>{
-  syncInteligente();
-});
+// [listeners moved to main init]
 
 </script>
 <style>
@@ -1017,23 +964,7 @@ body {
 <script>
 
 // ===== FIX FOTOS CRASH =====
-document.addEventListener("DOMContentLoaded", () => {
-  const input = document.getElementById("ind-fotos");
-  if(input){
-    input.addEventListener("change", e=>{
-      const files = Array.from(e.target.files);
-      files.forEach(file=>{
-        const reader = new FileReader();
-        reader.onload = ev=>{
-          pendingFotos.push(ev.target.result);
-          renderFotoPreview();
-        };
-        reader.readAsDataURL(file);
-      });
-      e.target.value="";
-    });
-  }
-});
+
 
 // ══════════════════════════════════════════════
 //  ESTADO GLOBAL
@@ -1304,20 +1235,7 @@ async function compressImage(file){
 }
 
 // override handler fotos
-document.addEventListener("DOMContentLoaded", () => {
-  const input = document.getElementById("ind-fotos");
-  if(input){
-    input.addEventListener("change", async e=>{
-      const files = Array.from(e.target.files);
-      for(const file of files){
-        const compressed = await compressImage(file);
-        pendingFotos.push(compressed);
-        renderFotoPreview();
-      }
-      e.target.value="";
-    });
-  }
-});
+
 
 
 // ══════════════════════════════════════════════
@@ -1755,32 +1673,20 @@ async function saveIndividuo() {
   if (idVal) obj.id = parseInt(idVal);
 
   await dbPut('individuos', obj);
-
-  // Append a Sheets via API directa si hay token
-  if (accessToken) {
-    const sectores     = await dbGetAll('sectores');
-    const sectorNombre = (sectores.find(s => s.id === sectorId) || {}).nombre || String(sectorId);
-    const data = [
-      obj.nombre, obj.cientifico||'', sectorNombre, obj.cantidad,
-      obj.estado, accionLabel(obj.accion), obj.obs||'', obj.lat||'', obj.lng||'',
-      new Date().toLocaleString('es-CO')
-    ];
-    saveToSheets(data);
-  }
-
   closeModal('individuo-modal');
   showToast('✅ Árbol guardado','ok');
-  syncAll();
   renderTable();
   renderDashboard();
+  // Sincronizar con Sheets en segundo plano (no bloquea la UI)
+  sincronizarConSheets();
 }
 
 async function deleteIndividuo(id) {
   if (!confirm('¿Eliminar este árbol del inventario?')) return;
   await dbDelete('individuos', id);
   showToast('Árbol eliminado','ok');
-  syncAll();
   renderTable(); renderDashboard(); renderSectores();
+  sincronizarConSheets();
 }
 
 async function openSectorModal(id=null) {
@@ -1944,6 +1850,68 @@ function getGPS() {
     },
     () => showToast('No se pudo obtener la ubicación','err')
   );
+}
+
+// ══════════════════════════════════════════════
+//  SINCRONIZACIÓN UNIFICADA CON SHEETS
+//  Usa API directa si hay token OAuth, si no usa Apps Script URL
+// ══════════════════════════════════════════════
+async function sincronizarConSheets() {
+  // Opción 1: API directa con token OAuth (más confiable)
+  if (accessToken) {
+    try {
+      const sectores   = await dbGetAll('sectores');
+      const individuos = await dbGetAll('individuos');
+      const sMap = {}; sectores.forEach(s=>sMap[s.id]=s.nombre);
+
+      const rows = [['ID','Nombre Común','Nombre Científico','Sector','Cantidad','Estado',
+        'Acción','Observaciones','Latitud','Longitud','Código','Fotos','Actualizado']];
+      individuos.forEach(i=>{
+        rows.push([i.id, i.nombre, i.cientifico||'', sMap[i.sectorId]||'',
+          i.cantidad||1, i.estado, accionLabel(i.accion), i.obs||'',
+          i.lat||'', i.lng||'', i.codigo||'', (i.fotos||[]).length, i.updatedAt||'']);
+      });
+
+      const sheetName = await getFirstSheetName();
+      const r = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,
+        {
+          method:  'PUT',
+          headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ values: rows })
+        }
+      );
+      if (r.ok) {
+        showToast('☁️ Datos sincronizados con Google Sheets','ok');
+        return;
+      }
+      // Si el token expiró (401), limpiar y caer al Apps Script
+      if (r.status === 401) { accessToken = null; updateDriveStatus(); }
+    } catch(e) {
+      console.warn('Sync API directa falló:', e);
+    }
+  }
+
+  // Opción 2: Apps Script URL (no requiere token)
+  const url = getCfg('gs_url', '');
+  if (!url) return;
+  try {
+    showSyncStatus('Sincronizando…');
+    const sectores   = await dbGetAll('sectores');
+    const individuos = await dbGetAll('individuos');
+    const indsSan    = individuos.map(i=>({...i, fotos:(i.fotos||[]).length+' foto(s)'}));
+    const res  = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ action:'sync', sectores, individuos: indsSan }),
+      headers: {'Content-Type':'application/json'}
+    });
+    const json = await res.json();
+    if (json.status === 'ok') showToast('☁️ Sincronizado con Google Sheets','ok');
+    else showToast('Error sync: '+(json.error||''),'err');
+  } catch(e) {
+    console.warn('syncAll falló:', e);
+  }
+  hideSyncStatus();
 }
 
 // ══════════════════════════════════════════════
@@ -2572,30 +2540,39 @@ const DATOS_INICIALES = {
 
 // Intenta cargar datos desde Apps Script; si falla o no hay URL, usa el seed local
 async function seedIfEmpty() {
-  const sectores = await dbGetAll('sectores');
-  if (sectores.length > 0) return; // Ya hay datos, no hacer nada
+  try {
+    const sectores = await dbGetAll('sectores');
+    if (sectores.length > 0) return; // Ya hay datos locales
 
-  const url = getCfg('gs_url', '');
-  if (url) {
-    try {
-      showLoginInfo('Cargando datos actualizados desde Google Sheets…');
-      const res  = await fetch(url + '?action=load');
-      const json = await res.json();
-      if (json.status === 'ok' && (json.sectores||[]).length > 0) {
-        for (const s of json.sectores)   await dbPut('sectores', s);
-        for (const i of (json.individuos||[])) await dbPut('individuos', i);
-        showLoginInfo('✅ Datos cargados desde Google Sheets (' + (json.individuos||[]).length + ' individuos)');
-        setTimeout(() => { const el = document.getElementById('login-info'); if(el) el.style.display='none'; }, 3000);
-        return;
+    const url = getCfg('gs_url', '');
+    if (url) {
+      try {
+        showLoginInfo('Cargando datos desde Google Sheets…');
+        const res  = await fetch(url + '?action=load', { signal: AbortSignal.timeout(8000) });
+        const json = await res.json();
+        if (json.status === 'ok' && (json.sectores||[]).length > 0) {
+          for (const s of json.sectores)       await dbPut('sectores', s);
+          for (const i of (json.individuos||[])) await dbPut('individuos', i);
+          showLoginInfo('✅ ' + (json.individuos||[]).length + ' individuos cargados desde Sheets');
+          setTimeout(() => { const el = document.getElementById('login-info'); if(el) el.style.display='none'; }, 3000);
+          return;
+        }
+      } catch(e) {
+        console.warn('Carga desde Sheets falló, usando datos locales:', e);
       }
-    } catch(e) {
-      console.warn('No se pudo cargar desde Sheets, usando datos locales:', e);
     }
-  }
 
-  // Fallback: datos iniciales hardcodeados
-  for (const s of DATOS_INICIALES.sectores)   await dbPut('sectores', s);
-  for (const i of DATOS_INICIALES.individuos) await dbPut('individuos', i);
+    // Fallback: datos iniciales hardcodeados
+    for (const s of DATOS_INICIALES.sectores)   await dbPut('sectores', s);
+    for (const i of DATOS_INICIALES.individuos) await dbPut('individuos', i);
+  } catch(e) {
+    console.error('seedIfEmpty error:', e);
+    // Último recurso: intentar seed directo
+    try {
+      for (const s of DATOS_INICIALES.sectores)   await dbPut('sectores', s);
+      for (const i of DATOS_INICIALES.individuos) await dbPut('individuos', i);
+    } catch(e2) { console.error('Seed fallback también falló:', e2); }
+  }
 }
 
 function showLoginInfo(msg) {
@@ -2615,10 +2592,27 @@ function showLoginInfo(msg) {
 //  INIT
 // ══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
-  await initDB();
-  await seedIfEmpty();
-  document.getElementById('login-pass').addEventListener('keydown',    e => { if(e.key==='Enter') doLogin(); });
-  document.getElementById('visitor-pass').addEventListener('keydown',  e => { if(e.key==='Enter') doLogin(); });
+  try {
+    await initDB();
+  } catch(e) {
+    console.error('initDB falló:', e);
+    alert('Error al iniciar la base de datos. Recarga la página.');
+    return;
+  }
+  try { await seedIfEmpty(); } catch(e) { console.warn('seedIfEmpty:', e); }
+
+  const lp = document.getElementById('login-pass');
+  const vp = document.getElementById('visitor-pass');
+  if (lp) lp.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+  if (vp) vp.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+  // Sincronizar botón ⟳ con la nueva función unificada
+  const syncBtn = document.getElementById('sync-btn');
+  if (syncBtn) syncBtn.onclick = sincronizarConSheets;
+
+  // Reconectar al volver a estar online
+  window.addEventListener('online', () => sincronizarConSheets());
+
   // Inicializar Google tokenClient cuando la librería esté lista
   if (typeof google !== 'undefined' && google.accounts) {
     initGoogleClient();
