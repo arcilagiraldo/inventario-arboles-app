@@ -1870,86 +1870,75 @@ function getGPS() {
 }
 
 
-// ── Carga datos desde Sheets y actualiza IDB local ──
-// Llama al Apps Script con action=load y sobreescribe IDB
+// ── Descarga datos de Sheets → sobreescribe IDB local ──
+// Garantiza que todos los dispositivos tengan los mismos datos
 async function cargarDesdeSheets() {
   const url = getCfg('gs_url', '');
   if (!url) return;
   try {
-    const res  = await fetch(url + '?action=load', { signal: AbortSignal.timeout(10000) });
+    const res  = await fetch(url + '?action=load', {
+      signal: AbortSignal.timeout(12000)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
-    if (json.status !== 'ok') return;
-    if ((json.sectores||[]).length > 0) {
-      for (const s of json.sectores)       await dbPut('sectores', s);
+    if (json.status !== 'ok') {
+      console.warn('cargarDesdeSheets: status!=ok', json.error);
+      return;
     }
-    if ((json.individuos||[]).length > 0) {
-      for (const i of json.individuos)     await dbPut('individuos', i);
-      showToast('📥 Datos actualizados desde Sheets (' + json.individuos.length + ' registros)', 'ok');
-      renderDashboard();
-    }
+    const secs = json.sectores  || [];
+    const inds = json.individuos || [];
+    if (secs.length === 0 && inds.length === 0) return; // Sheets vacío, no sobreescribir
+    // Sobreescribir IDB con los datos de Sheets
+    for (const s of secs) await dbPut('sectores',  s);
+    for (const i of inds) await dbPut('individuos', i);
+    showToast('📥 ' + inds.length + ' registros cargados desde Sheets', 'ok');
+    renderDashboard();
+    renderSectores();
   } catch(e) {
-    console.warn('cargarDesdeSheets:', e);
+    // Silencioso — si falla usa datos locales
+    console.warn('cargarDesdeSheets:', e.message);
   }
 }
 
 // ══════════════════════════════════════════════
-//  SINCRONIZACIÓN UNIFICADA CON SHEETS
-//  Usa API directa si hay token OAuth, si no usa Apps Script URL
+//  SINCRONIZACIÓN — TODO VÍA APPS SCRIPT
+//  Una sola ruta, una sola fuente de verdad para todos los dispositivos
 // ══════════════════════════════════════════════
 async function sincronizarConSheets() {
-  // Opción 1: API directa con token OAuth (más confiable)
-  if (accessToken) {
-    try {
-      const sectores   = await dbGetAll('sectores');
-      const individuos = await dbGetAll('individuos');
-      const sMap = {}; sectores.forEach(s=>sMap[s.id]=s.nombre);
-
-      const rows = [['ID','Nombre Común','Nombre Científico','Sector','Cantidad','Estado',
-        'Acción','Observaciones','Latitud','Longitud','Código','Fotos','Actualizado']];
-      individuos.forEach(i=>{
-        rows.push([i.id, i.nombre, i.cientifico||'', sMap[i.sectorId]||'',
-          i.cantidad||1, i.estado, accionLabel(i.accion), i.obs||'',
-          i.lat||'', i.lng||'', i.codigo||'', (i.fotos||[]).length, i.updatedAt||'']);
-      });
-
-      const sheetName = await getFirstSheetName();
-      const r = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,
-        {
-          method:  'PUT',
-          headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ values: rows })
-        }
-      );
-      if (r.ok) {
-        showToast('☁️ Datos sincronizados con Google Sheets','ok');
-        return;
-      }
-      // Si el token expiró (401), limpiar y caer al Apps Script
-      if (r.status === 401) { accessToken = null; updateDriveStatus(); }
-    } catch(e) {
-      console.warn('Sync API directa falló:', e);
-    }
-  }
-
-  // Opción 2: Apps Script URL (no requiere token)
   const url = getCfg('gs_url', '');
-  if (!url) return;
+  if (!url) {
+    showToast('⚠️ Configura la URL del Apps Script en Config → Drive', 'err');
+    return;
+  }
+  showSyncStatus('Subiendo datos a Google Sheets…');
   try {
-    showSyncStatus('Sincronizando…');
     const sectores   = await dbGetAll('sectores');
     const individuos = await dbGetAll('individuos');
-    const indsSan    = individuos.map(i=>({...i, fotos:(i.fotos||[]).length+' foto(s)'}));
+    // Sanitizar: fotos son base64 pesadas, enviar solo el conteo
+    const indsSan = individuos.map(i => ({
+      ...i,
+      fotos: (i.fotos||[]).length + ' foto(s)'
+    }));
+
     const res  = await fetch(url, {
-      method: 'POST',
-      body: JSON.stringify({ action:'sync', sectores, individuos: indsSan }),
-      headers: {'Content-Type':'application/json'}
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'sync', sectores, individuos: indsSan })
     });
+
+    if (!res.ok) {
+      throw new Error('HTTP ' + res.status + ' — ' + res.statusText);
+    }
+
     const json = await res.json();
-    if (json.status === 'ok') showToast('☁️ Sincronizado con Google Sheets','ok');
-    else showToast('Error sync: '+(json.error||''),'err');
+    if (json.status === 'ok') {
+      showToast('☁️ Sincronizado: ' + (json.synced||0) + ' registros en Sheets', 'ok');
+    } else {
+      showToast('❌ Error Sheets: ' + (json.error || 'desconocido'), 'err');
+    }
   } catch(e) {
-    console.warn('syncAll falló:', e);
+    showToast('❌ No se pudo conectar con Apps Script: ' + e.message, 'err');
+    console.error('sincronizarConSheets:', e);
   }
   hideSyncStatus();
 }
@@ -2005,39 +1994,6 @@ function doAuth() {
     return;
   }
   tokenClient.requestAccessToken({ prompt: '' });
-}
-
-// Caché del nombre real de la primera hoja
-let _sheetName = null;
-
-async function getFirstSheetName() {
-  if (_sheetName) return _sheetName;
-  try {
-    const r = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,
-      { headers: { 'Authorization': 'Bearer ' + accessToken } }
-    );
-    const j = await r.json();
-    _sheetName = j.sheets[0].properties.title;
-  } catch(e) {
-    _sheetName = 'Hoja 1'; // fallback genérico
-  }
-  return _sheetName;
-}
-
-async function saveToSheets(data) {
-  if (!accessToken) return;
-  const sheet = await getFirstSheetName();
-  fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheet)}!A1:append?valueInputOption=RAW`, {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + accessToken,
-      'Content-Type':  'application/json'
-    },
-    body: JSON.stringify({ values: [data] })
-  }).then(r => {
-    if (!r.ok) r.json().then(e => console.warn('Sheets error:', e));
-  }).catch(e => console.warn('Sheets fetch error:', e));
 }
 
 // ══════════════════════════════════════════════
@@ -2167,45 +2123,36 @@ function copyGASCode() {
 // 1. Guardar en Google Sheets (Sheets API directa)
 async function guardarEnSheets() {
   const res = document.getElementById('export-result');
-  if (!accessToken) {
-    res.innerHTML = '<span style="color:var(--rojo)">❌ Primero inicia sesión con Google (pestaña Drive)</span>';
+  const url = getCfg('gs_url', '');
+  if (!url) {
+    res.innerHTML = '<span style="color:var(--rojo)">❌ Configura la URL del Apps Script en Config → Drive</span>';
     return;
   }
   res.innerHTML = '<span style="color:var(--gris-texto)">⏳ Subiendo datos a Google Sheets…</span>';
   try {
     const sectores   = await dbGetAll('sectores');
     const individuos = await dbGetAll('individuos');
-    const sMap = {}; sectores.forEach(s=>sMap[s.id]=s.nombre);
+    const indsSan = individuos.map(i => ({
+      ...i, fotos: (i.fotos||[]).length + ' foto(s)'
+    }));
 
-    const rows = [['ID','Nombre Común','Nombre Científico','Sector','Cantidad','Estado','Acción','Observaciones','Latitud','Longitud','Fotos','Actualizado']];
-    individuos.forEach(i=>{
-      rows.push([i.id, i.nombre, i.cientifico||'', sMap[i.sectorId]||'', i.cantidad||1,
-        i.estado, accionLabel(i.accion), i.obs||'', i.lat||'', i.lng||'',
-        (i.fotos||[]).length, i.updatedAt||'']);
+    const r = await fetch(url, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'sync', sectores, individuos: indsSan })
     });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const json = await r.json();
+    if (json.status !== 'ok') throw new Error(json.error || 'Error desconocido');
 
-    // Detectar nombre real de la hoja para evitar error "Unable to parse range"
-    const sheetName = await getFirstSheetName();
-    const r = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!A1?valueInputOption=RAW`,
-      {
-        method:  'PUT',
-        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ values: rows })
-      }
-    );
-    if (!r.ok) {
-      const err = await r.json();
-      throw new Error(err.error?.message || 'Error HTTP ' + r.status);
-    }
-    res.innerHTML = `<span style="color:var(--semaforo-verde)">✅ ${individuos.length} registros guardados en Google Sheets</span>`;
-    showToast('☁️ Datos guardados en Sheets','ok');
+    res.innerHTML = '<span style="color:var(--semaforo-verde)">✅ ' + individuos.length + ' registros guardados en Google Sheets</span>';
+    showToast('☁️ Datos guardados en Sheets', 'ok');
   } catch(e) {
-    res.innerHTML = `<span style="color:var(--rojo)">❌ Error: ${e.message}</span>`;
+    res.innerHTML = '<span style="color:var(--rojo)">❌ Error: ' + e.message + '</span>';
   }
 }
 
-// 2. Cargar datos desde Apps Script
+// 2. Cargar datos desde Apps Script → sobreescribe IDB local
 async function cargarDatosActualizados() {
   const res = document.getElementById('export-result');
   const url = getCfg('gs_url', '');
@@ -2216,16 +2163,24 @@ async function cargarDatosActualizados() {
   res.innerHTML = '<span style="color:var(--gris-texto)">⏳ Cargando desde Google Sheets…</span>';
   showSyncStatus('Cargando datos actualizados…');
   try {
-    const r    = await fetch(url + '?action=load');
+    const r = await fetch(url + '?action=load', { signal: AbortSignal.timeout(12000) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     const json = await r.json();
     if (json.status !== 'ok') throw new Error(json.error || 'Error desconocido');
-    if (json.sectores)   for (const s of json.sectores)   await dbPut('sectores', s);
-    if (json.individuos) for (const i of json.individuos) await dbPut('individuos', i);
-    res.innerHTML = `<span style="color:var(--semaforo-verde)">✅ Datos cargados: ${(json.individuos||[]).length} individuos</span>`;
-    showToast('📥 Datos actualizados cargados','ok');
+    const secs = json.sectores  || [];
+    const inds = json.individuos || [];
+    if (secs.length === 0 && inds.length === 0) {
+      res.innerHTML = '<span style="color:var(--amarillo)">⚠️ Sheets está vacío. Sube los datos primero desde otro dispositivo.</span>';
+      hideSyncStatus(); return;
+    }
+    for (const s of secs) await dbPut('sectores',  s);
+    for (const i of inds) await dbPut('individuos', i);
+    res.innerHTML = '<span style="color:var(--semaforo-verde)">✅ Cargados: ' + inds.length + ' individuos, ' + secs.length + ' sectores</span>';
+    showToast('📥 Datos actualizados desde Sheets', 'ok');
     renderDashboard();
+    renderSectores();
   } catch(e) {
-    res.innerHTML = `<span style="color:var(--rojo)">❌ Error: ${e.message}. Verifica la URL de Apps Script.</span>`;
+    res.innerHTML = '<span style="color:var(--rojo)">❌ Error: ' + e.message + '</span>';
   }
   hideSyncStatus();
 }
