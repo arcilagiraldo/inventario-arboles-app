@@ -1876,22 +1876,35 @@ async function cargarDesdeSheets() {
   const url = getCfg('gs_url', '');
   if (!url) return;
   try {
-    const res  = await fetch(url + '?action=load', {
+    console.log('[LOAD] Cargando datos desde Apps Script...');
+    const res = await fetch(url + '?action=load', {
       signal: AbortSignal.timeout(12000)
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const json = await res.json();
+    const text = await res.text();
+    console.log('[LOAD] Respuesta HTTP:', res.status, '— bytes:', text.length);
+    let json;
+    try { json = JSON.parse(text); } catch(e) { throw new Error('GAS no devolvió JSON: ' + text.slice(0,100)); }
     if (json.status !== 'ok') {
-      console.warn('cargarDesdeSheets: status!=ok', json.error);
+      console.warn('[LOAD] status!=ok:', json.error);
       return;
     }
     const secs = json.sectores  || [];
     const inds = json.individuos || [];
     if (secs.length === 0 && inds.length === 0) return; // Sheets vacío, no sobreescribir
     // Sobreescribir IDB con los datos de Sheets
-    for (const s of secs) await dbPut('sectores',  s);
-    for (const i of inds) await dbPut('individuos', i);
-    showToast('📥 ' + inds.length + ' registros cargados desde Sheets', 'ok');
+    for (const s of secs) await dbPut('sectores', s);
+    // Normalizar individuos: fotos puede venir como string del GAS
+    const indsFixed = inds.map(i => ({
+      ...i,
+      id:      typeof i.id === 'number' ? i.id : parseInt(i.id)||undefined,
+      sectorId:typeof i.sectorId === 'number' ? i.sectorId : parseInt(i.sectorId)||1,
+      cantidad: parseInt(i.cantidad)||1,
+      fotos:   Array.isArray(i.fotos) ? i.fotos : []
+    }));
+    for (const i of indsFixed) await dbPut('individuos', i);
+    console.log('[LOAD] ✅', indsFixed.length, 'individuos y', secs.length, 'sectores cargados en IDB');
+    showToast('📥 ' + indsFixed.length + ' registros cargados desde Sheets', 'ok');
     renderDashboard();
     renderSectores();
   } catch(e) {
@@ -1920,25 +1933,37 @@ async function sincronizarConSheets() {
       fotos: (i.fotos||[]).length + ' foto(s)'
     }));
 
-    const res  = await fetch(url, {
+    // Usar text/plain para evitar preflight CORS que Apps Script rechaza
+    const payload = JSON.stringify({ action: 'sync', sectores, individuos: indsSan });
+    console.log('[SYNC] Enviando', indsSan.length, 'individuos y', sectores.length, 'sectores a:', url);
+
+    const res = await fetch(url, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ action: 'sync', sectores, individuos: indsSan })
+      headers: { 'Content-Type': 'text/plain' },
+      body:    payload
     });
 
+    console.log('[SYNC] Respuesta HTTP:', res.status, res.statusText);
+
     if (!res.ok) {
-      throw new Error('HTTP ' + res.status + ' — ' + res.statusText);
+      throw new Error('HTTP ' + res.status + ' — verifique que el Apps Script esté desplegado como "Cualquiera"');
     }
 
-    const json = await res.json();
+    const text = await res.text();
+    console.log('[SYNC] Respuesta GAS:', text);
+    let json;
+    try { json = JSON.parse(text); } catch(pe) { throw new Error('GAS no devolvió JSON: ' + text.slice(0,200)); }
+
     if (json.status === 'ok') {
       showToast('☁️ Sincronizado: ' + (json.synced||0) + ' registros en Sheets', 'ok');
+      console.log('[SYNC] ✅ Éxito:', json);
     } else {
       showToast('❌ Error Sheets: ' + (json.error || 'desconocido'), 'err');
+      console.error('[SYNC] ❌ Error GAS:', json);
     }
   } catch(e) {
-    showToast('❌ No se pudo conectar con Apps Script: ' + e.message, 'err');
-    console.error('sincronizarConSheets:', e);
+    showToast('❌ Error de conexión: ' + e.message, 'err');
+    console.error('[SYNC] ❌ Excepción:', e);
   }
   hideSyncStatus();
 }
@@ -2136,13 +2161,17 @@ async function guardarEnSheets() {
       ...i, fotos: (i.fotos||[]).length + ' foto(s)'
     }));
 
+    console.log('[GUARDAR] Enviando datos al Apps Script...');
     const r = await fetch(url, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body:    JSON.stringify({ action: 'sync', sectores, individuos: indsSan })
     });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const json = await r.json();
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' — verifique el despliegue del Apps Script');
+    const text = await r.text();
+    console.log('[GUARDAR] Respuesta GAS:', text);
+    let json;
+    try { json = JSON.parse(text); } catch(e) { throw new Error('GAS no devolvió JSON válido'); }
     if (json.status !== 'ok') throw new Error(json.error || 'Error desconocido');
 
     res.innerHTML = '<span style="color:var(--semaforo-verde)">✅ ' + individuos.length + ' registros guardados en Google Sheets</span>';
