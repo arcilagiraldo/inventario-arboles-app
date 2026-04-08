@@ -1981,8 +1981,9 @@ async function cargarDesdeSheets() {
 // ══════════════════════════════════════════════
 //  SINCRONIZACIÓN — TODO VÍA APPS SCRIPT
 //  Estrategia multi-método para evitar CORS:
-//  1) fetch con text/plain (sin preflight)
-//  2) iframe form POST (fallback universal)
+//  1) fetch POST con text/plain (sin preflight)
+//  2) JSONP via GET (cross-origin nativo, lee respuesta real)
+//  3) iframe form POST (fallback ciego — último recurso)
 // ══════════════════════════════════════════════
 async function sincronizarConSheets() {
   const url = getCfg('gs_url', '');
@@ -2003,7 +2004,7 @@ async function sincronizarConSheets() {
 
     let json = null;
 
-    // ── Método 1: fetch text/plain (sin preflight) ──────────────────
+    // ── Método 1: fetch POST text/plain (sin preflight) ─────────────
     try {
       const res = await fetch(url, {
         method:  'POST',
@@ -2014,16 +2015,27 @@ async function sincronizarConSheets() {
       if (res.ok) {
         const text = await res.text();
         json = JSON.parse(text);
-        console.log('[SYNC] Método fetch OK:', json);
+        console.log('[SYNC] Método 1 fetch OK:', json);
       }
     } catch(fetchErr) {
-      console.warn('[SYNC] fetch bloqueado:', fetchErr.message, '— usando iframe form POST...');
+      console.warn('[SYNC] Método 1 fetch bloqueado:', fetchErr.message);
     }
 
-    // ── Método 2: iframe form POST (cross-origin safe) ──────────────
+    // ── Método 2: JSONP via GET (lee respuesta real, cross-origin) ──
+    if (!json) {
+      try {
+        console.log('[SYNC] Método 2: JSONP GET...');
+        json = await gasGet(url, { action: 'sync', payload });
+        console.log('[SYNC] Método 2 JSONP OK:', json);
+      } catch(jsonpErr) {
+        console.warn('[SYNC] Método 2 JSONP falló:', jsonpErr.message);
+      }
+    }
+
+    // ── Método 3: iframe form POST (fallback ciego) ──────────────────
     if (!json) {
       json = await gasPost(url, payload);
-      console.log('[SYNC] Método iframe activado (datos enviados, respuesta no legible por CORS)');
+      console.log('[SYNC] Método 3 iframe activado (respuesta no legible por CORS)');
     }
 
     if (json && (json.status === 'ok' || json.note === 'iframe-mode')) {
