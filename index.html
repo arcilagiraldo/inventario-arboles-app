@@ -1985,22 +1985,27 @@ async function cargarDesdeSheets() {
 //  2) JSONP via GET (cross-origin nativo, lee respuesta real)
 //  3) iframe form POST (fallback ciego — último recurso)
 // ══════════════════════════════════════════════
-async function sincronizar() {
-    console.log("[SYNC] Iniciando sincronización única vía Form-Iframe...");
-    
-    const url = "https://script.google.com/macros/s/AKfycbyXUtM_DeOn3jHCQomr3JxP3dVt2ZcL9AMDePHeIs9qAD_D1YHw2Ulwgy69-4dKQKxP/exec";
-    
-    // Obtener datos
+async function sincronizarTodo() {
+    // 1. Obtener los datos actuales de tu app
     const sectores = JSON.parse(localStorage.getItem('sectores') || '[]');
     const individuos = JSON.parse(localStorage.getItem('individuos') || '[]');
 
-    // 1. Crear formulario
+    if (sectores.length === 0 && individuos.length === 0) {
+        alert("No hay datos para sincronizar.");
+        return;
+    }
+
+    const url = "https://script.google.com/macros/s/AKfycbyXUtM_DeOn3jHCQomr3JxP3dVt2ZcL9AMDePHeIs9qAD_D1YHw2Ulwgy69-4dKQKxP/exec";
+    
+    console.log("[SYNC] Iniciando envío seguro vía Iframe...");
+
+    // 2. Crear el formulario oculto
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = url;
-    form.target = 'hidden_iframe';
+    form.target = 'hidden_iframe_sync'; // Apunta al iframe
 
-    // 2. Campo payload
+    // 3. Empaquetar los datos
     const input = document.createElement('input');
     input.type = 'hidden';
     input.name = 'payload';
@@ -2011,20 +2016,31 @@ async function sincronizar() {
     });
 
     form.appendChild(input);
-    document.body.appendChild(form);
 
-    // 3. Enviar
+    // 4. Crear el iframe si no existe (esto evita el bloqueo de popups)
+    let iframe = document.getElementById('hidden_iframe_sync');
+    if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'hidden_iframe_sync';
+        iframe.name = 'hidden_iframe_sync';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+    }
+
+    // 5. ENVIAR
+    document.body.appendChild(form);
     form.submit();
+
+    // 6. Feedback al usuario
+    alert("✅ Datos enviados a la nube.\n\nEl sistema procesará los " + individuos.length + " árboles en segundo plano.");
     
-    // 4. Feedback visual inmediato
-    console.log("[SYNC] Formulario enviado. Ignorar errores de CORS posteriores.");
-    alert("Sincronización enviada con éxito a Google Sheets.");
-    
-    // Limpiar
+    // 7. Limpiar el formulario del HTML
     setTimeout(() => {
-        document.body.removeChild(form);
-        // Aquí podrías vaciar el localstorage si confirmas que llegó
-    }, 1000);
+        if (document.body.contains(form)) {
+            document.body.removeChild(form);
+        }
+        console.log("[SYNC] Proceso terminado.");
+    }, 2000);
 }
 
 // ══════════════════════════════════════════════
