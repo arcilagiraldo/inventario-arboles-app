@@ -1985,27 +1985,31 @@ async function cargarDesdeSheets() {
 //  2) JSONP via GET (cross-origin nativo, lee respuesta real)
 //  3) iframe form POST (fallback ciego — último recurso)
 // ══════════════════════════════════════════════
-async function sincronizarTodo() {
-    // 1. Obtener los datos actuales de tu app
+async function sincronizarConSheets() {
+    console.log("[SYNC] Iniciando proceso...");
+    
+    // 1. Obtener datos
     const sectores = JSON.parse(localStorage.getItem('sectores') || '[]');
     const individuos = JSON.parse(localStorage.getItem('individuos') || '[]');
 
-    if (sectores.length === 0 && individuos.length === 0) {
-        alert("No hay datos para sincronizar.");
-        return;
+    const url = "https://script.google.com/macros/s/AKfycbyXUtM_DeOn3jHCQomr3JxP3dVt2ZcL9AMDePHeIs9qAD_D1YHw2Ulwgy69-4dKQKxP/exec";
+
+    // 2. Crear o recuperar el iframe (Evita el bloqueo de ventanas emergentes)
+    let iframe = document.getElementById('hidden_iframe_sync');
+    if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'hidden_iframe_sync';
+        iframe.name = 'hidden_iframe_sync';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
     }
 
-    const url = "https://script.google.com/macros/s/AKfycbyXUtM_DeOn3jHCQomr3JxP3dVt2ZcL9AMDePHeIs9qAD_D1YHw2Ulwgy69-4dKQKxP/exec";
-    
-    console.log("[SYNC] Iniciando envío seguro vía Iframe...");
-
-    // 2. Crear el formulario oculto
+    // 3. Crear el formulario dinámico
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = url;
-    form.target = 'hidden_iframe_sync'; // Apunta al iframe
+    form.target = 'hidden_iframe_sync';
 
-    // 3. Empaquetar los datos
     const input = document.createElement('input');
     input.type = 'hidden';
     input.name = 'payload';
@@ -2016,30 +2020,21 @@ async function sincronizarTodo() {
     });
 
     form.appendChild(input);
+    document.body.appendChild(form);
 
-    // 4. Crear el iframe si no existe (esto evita el bloqueo de popups)
-    let iframe = document.getElementById('hidden_iframe_sync');
-    if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = 'hidden_iframe_sync';
-        iframe.name = 'hidden_iframe_sync';
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
+    // 4. Enviar y avisar
+    try {
+        form.submit();
+        alert("🛰️ Sincronización enviada.\nLos datos de Guatapé se están actualizando en el Sheets.");
+        console.log("[SYNC] Datos enviados correctamente al iframe.");
+    } catch (e) {
+        console.error("[SYNC] Error al enviar:", e);
+        alert("Hubo un error al intentar enviar los datos.");
     }
 
-    // 5. ENVIAR
-    document.body.appendChild(form);
-    form.submit();
-
-    // 6. Feedback al usuario
-    alert("✅ Datos enviados a la nube.\n\nEl sistema procesará los " + individuos.length + " árboles en segundo plano.");
-    
-    // 7. Limpiar el formulario del HTML
+    // 5. Limpieza suave
     setTimeout(() => {
-        if (document.body.contains(form)) {
-            document.body.removeChild(form);
-        }
-        console.log("[SYNC] Proceso terminado.");
+        if (document.body.contains(form)) document.body.removeChild(form);
     }, 2000);
 }
 
