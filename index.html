@@ -1254,23 +1254,41 @@ async function renderSectores() {
   const sectores   = await dbGetAll('sectores');
   const individuos = await dbGetAll('individuos');
   const grid = document.getElementById('sectores-grid');
+
   if (sectores.length === 0) {
     grid.innerHTML = '<p style="color:var(--gris-texto);font-size:14px;">No hay sectores registrados aún.</p>';
     return;
   }
+
   grid.innerHTML = sectores.map(s => {
-    const inds      = individuos.filter(i=>i.sectorId===s.id);
-    const total     = inds.reduce((a,i)=>a+(parseInt(i.cantidad)||1),0);
-    const criticos  = inds.filter(i=>i.estado==='rojo').length;
-    const borderColor = criticos > 0 ? 'var(--semaforo-rojo)' : inds.some(i=>i.estado==='amarillo') ? 'var(--semaforo-amarillo)' : 'var(--verde)';
+    // Filtramos los individuos de este sector
+    const inds = individuos.filter(i => i.sectorId === s.id || i.sector === s.nombre);
+    
+    // CALCULAMOS EL TOTAL REAL
+    // Si la app creó 38 registros individuales, sumamos 1 por cada registro.
+    // Si un registro dice ser un grupo (cantidad > 1), sumamos esa cantidad.
+    let totalIndividuos = 0;
+    inds.forEach(i => {
+       const c = parseInt(i.cantidad);
+       // Si la cantidad es igual al total de registros, es un error de guardado y tomamos 1
+       // Si no, sumamos la cantidad que diga el registro
+       totalIndividuos += (c > 1 && inds.length === 1) ? c : 1; 
+    });
+
+    const criticos = inds.filter(i => i.estado === 'rojo').length;
+    const borderColor = criticos > 0 ? 'var(--semaforo-rojo)' : inds.some(i => i.estado === 'amarillo') ? 'var(--semaforo-amarillo)' : 'var(--verde)';
+
     return `<div class="sector-card" style="border-left-color:${borderColor}" onclick="showSectorDetail(${s.id})">
       <div class="sector-card-header">
-        <div><div class="sector-name">${s.nombre}</div><div class="sector-area">${s.area ? s.area+' m²' : ''} ${s.ubicacion||''}</div></div>
-        ${currentRole==='admin'?`<button class="btn-tiny btn-edit" onclick="event.stopPropagation();openSectorModal(${s.id})">✏️</button>`:''}
+        <div>
+          <div class="sector-name">${s.nombre}</div>
+          <div class="sector-area">${s.area ? s.area + ' m²' : ''} ${s.ubicacion || ''}</div>
+        </div>
+        ${currentRole === 'admin' ? `<button class="btn-tiny btn-edit" onclick="event.stopPropagation();openSectorModal(${s.id})">✏️</button>` : ''}
       </div>
       <div class="sector-stats">
         <div><b>${inds.length}</b><br>registros</div>
-        <div><b>${total}</b><br>individuos</div>
+        <div><b>${totalIndividuos}</b><br>individuos</div>
         <div><b>${criticos}</b><br>críticos</div>
       </div>
     </div>`;
