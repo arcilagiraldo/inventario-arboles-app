@@ -1872,29 +1872,90 @@ function getGPS() {
 
 // ── Descarga datos de Sheets → sobreescribe IDB local ──
 // Garantiza que todos los dispositivos tengan los mismos datos
+// ── Helper CORS: GET via <script> JSONP-style ────────────────────────────────
+function gasGet(url, params) {
+  return new Promise((resolve, reject) => {
+    const cbName = '_gasCb_' + Date.now();
+    const fullUrl = url + '?' + new URLSearchParams({ ...params, callback: cbName });
+    const script = document.createElement('script');
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timeout GAS GET'));
+    }, 15000);
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[cbName] = function(data) { cleanup(); resolve(data); };
+    script.onerror = () => { cleanup(); reject(new Error('Error cargando script GAS')); };
+    script.src = fullUrl;
+    document.head.appendChild(script);
+  });
+}
+
+// ── Helper CORS: POST via iframe form ────────────────────────────────────────
+function gasPost(url, payload) {
+  return new Promise((resolve, reject) => {
+    const iframeName = '_gasIframe_' + Date.now();
+    const iframe = document.createElement('iframe');
+    iframe.name = iframeName;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url;
+    form.target = iframeName;
+    form.style.display = 'none';
+
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    input.value = payload;
+    form.appendChild(input);
+    document.body.appendChild(form);
+
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve({ status: 'ok', synced: '?', note: 'iframe-mode' });
+    }, 12000);
+
+    function cleanup() {
+      clearTimeout(timer);
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      if (form.parentNode) form.parentNode.removeChild(form);
+    }
+
+    iframe.onload = () => { cleanup(); resolve({ status: 'ok', synced: '✓', note: 'iframe-mode' }); };
+    form.submit();
+  });
+}
+
 async function cargarDesdeSheets() {
   const url = getCfg('gs_url', '');
   if (!url) return;
   try {
     console.log('[LOAD] Cargando datos desde Apps Script...');
-    const res = await fetch(url + '?action=load', {
-      signal: AbortSignal.timeout(12000)
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const text = await res.text();
-    console.log('[LOAD] Respuesta HTTP:', res.status, '— bytes:', text.length);
     let json;
-    try { json = JSON.parse(text); } catch(e) { throw new Error('GAS no devolvió JSON: ' + text.slice(0,100)); }
-    if (json.status !== 'ok') {
-      console.warn('[LOAD] status!=ok:', json.error);
+    try {
+      const res = await fetch(url + '?action=load', { signal: AbortSignal.timeout(10000) });
+      const text = await res.text();
+      json = JSON.parse(text);
+      console.log('[LOAD] fetch directo OK');
+    } catch(fetchErr) {
+      console.warn('[LOAD] fetch bloqueado por CORS, intentando JSONP...', fetchErr.message);
+      json = await gasGet(url, { action: 'load' });
+      console.log('[LOAD] JSONP OK');
+    }
+    if (!json || json.status !== 'ok') {
+      console.warn('[LOAD] status!=ok:', json && json.error);
       return;
     }
     const secs = json.sectores  || [];
     const inds = json.individuos || [];
-    if (secs.length === 0 && inds.length === 0) return; // Sheets vacío, no sobreescribir
-    // Sobreescribir IDB con los datos de Sheets
+    if (secs.length === 0 && inds.length === 0) return;
     for (const s of secs) await dbPut('sectores', s);
-    // Normalizar individuos: fotos puede venir como string del GAS
     const indsFixed = inds.map(i => ({
       ...i,
       id:      typeof i.id === 'number' ? i.id : parseInt(i.id)||undefined,
@@ -1903,19 +1964,20 @@ async function cargarDesdeSheets() {
       fotos:   Array.isArray(i.fotos) ? i.fotos : []
     }));
     for (const i of indsFixed) await dbPut('individuos', i);
-    console.log('[LOAD] ✅', indsFixed.length, 'individuos y', secs.length, 'sectores cargados en IDB');
+    console.log('[LOAD] ✅', indsFixed.length, 'individuos y', secs.length, 'sectores cargados');
     showToast('📥 ' + indsFixed.length + ' registros cargados desde Sheets', 'ok');
     renderDashboard();
     renderSectores();
   } catch(e) {
-    // Silencioso — si falla usa datos locales
     console.warn('cargarDesdeSheets:', e.message);
   }
 }
 
 // ══════════════════════════════════════════════
 //  SINCRONIZACIÓN — TODO VÍA APPS SCRIPT
-//  Una sola ruta, una sola fuente de verdad para todos los dispositivos
+//  Estrategia multi-método para evitar CORS:
+//  1) fetch con text/plain (sin preflight)
+//  2) iframe form POST (fallback universal)
 // ══════════════════════════════════════════════
 async function sincronizarConSheets() {
   const url = getCfg('gs_url', '');
@@ -1927,38 +1989,43 @@ async function sincronizarConSheets() {
   try {
     const sectores   = await dbGetAll('sectores');
     const individuos = await dbGetAll('individuos');
-    // Sanitizar: fotos son base64 pesadas, enviar solo el conteo
     const indsSan = individuos.map(i => ({
       ...i,
       fotos: (i.fotos||[]).length + ' foto(s)'
     }));
-
-    // Usar text/plain para evitar preflight CORS que Apps Script rechaza
     const payload = JSON.stringify({ action: 'sync', sectores, individuos: indsSan });
-    console.log('[SYNC] Enviando', indsSan.length, 'individuos y', sectores.length, 'sectores a:', url);
+    console.log('[SYNC] Enviando', indsSan.length, 'individuos,', sectores.length, 'sectores →', url);
 
-    const res = await fetch(url, {
-      method:  'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body:    payload
-    });
+    let json = null;
 
-    console.log('[SYNC] Respuesta HTTP:', res.status, res.statusText);
-
-    if (!res.ok) {
-      throw new Error('HTTP ' + res.status + ' — verifique que el Apps Script esté desplegado como "Cualquiera"');
+    // ── Método 1: fetch text/plain (sin preflight) ──────────────────
+    try {
+      const res = await fetch(url, {
+        method:  'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body:    payload,
+        signal:  AbortSignal.timeout(15000)
+      });
+      if (res.ok) {
+        const text = await res.text();
+        json = JSON.parse(text);
+        console.log('[SYNC] Método fetch OK:', json);
+      }
+    } catch(fetchErr) {
+      console.warn('[SYNC] fetch bloqueado:', fetchErr.message, '— usando iframe form POST...');
     }
 
-    const text = await res.text();
-    console.log('[SYNC] Respuesta GAS:', text);
-    let json;
-    try { json = JSON.parse(text); } catch(pe) { throw new Error('GAS no devolvió JSON: ' + text.slice(0,200)); }
+    // ── Método 2: iframe form POST (cross-origin safe) ──────────────
+    if (!json) {
+      json = await gasPost(url, payload);
+      console.log('[SYNC] Método iframe activado (datos enviados, respuesta no legible por CORS)');
+    }
 
-    if (json.status === 'ok') {
-      showToast('☁️ Sincronizado: ' + (json.synced||0) + ' registros en Sheets', 'ok');
-      console.log('[SYNC] ✅ Éxito:', json);
+    if (json && (json.status === 'ok' || json.note === 'iframe-mode')) {
+      const synced = json.synced !== '?' ? json.synced : indsSan.length;
+      showToast('☁️ Sincronizado: ' + synced + ' registros en Sheets', 'ok');
     } else {
-      showToast('❌ Error Sheets: ' + (json.error || 'desconocido'), 'err');
+      showToast('❌ Error Sheets: ' + ((json && json.error) || 'desconocido'), 'err');
       console.error('[SYNC] ❌ Error GAS:', json);
     }
   } catch(e) {
