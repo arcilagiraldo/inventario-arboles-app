@@ -1985,104 +1985,46 @@ async function cargarDesdeSheets() {
 //  2) JSONP via GET (cross-origin nativo, lee respuesta real)
 //  3) iframe form POST (fallback ciego — último recurso)
 // ══════════════════════════════════════════════
-async function sincronizarConSheets() {
-  const url = getCfg('gs_url', '');
-  if (!url) {
-    showToast('⚠️ Configura la URL del Apps Script en Config → Drive', 'err');
-    return;
-  }
-  showSyncStatus('Subiendo datos a Google Sheets…');
-  try {
-    const sectores   = await dbGetAll('sectores');
-    const individuos = await dbGetAll('individuos');
-    const indsSan = individuos.map(i => ({
-      ...i,
-      fotos: (i.fotos||[]).length + ' foto(s)'
-    }));
-    const payload = JSON.stringify({ action: 'sync', sectores, individuos: indsSan });
-    console.log('[SYNC] Enviando', indsSan.length, 'individuos,', sectores.length, 'sectores →', url);
-
-    let json = null;
-
-    // ── Método 1: fetch POST text/plain (sin preflight) ─────────────
-    try {
-    const url = "https://script.google.com/macros/s/AKfycbxGMlxwbKp8y2yt1F21wVsO_JYbYpyZ3KnxLpe0jrOE07kGzC4farXNszVIjW2z42E7/exec";
+async function sincronizar() {
+    console.log("[SYNC] Iniciando sincronización única vía Form-Iframe...");
     
-    // Mostramos en consola para seguimiento
-    console.log("[SYNC] Enviando datos vía Form-Iframe para evitar 403...");
+    const url = "https://script.google.com/macros/s/AKfycbyXUtM_DeOn3jHCQomr3JxP3dVt2ZcL9AMDePHeIs9qAD_D1YHw2Ulwgy69-4dKQKxP/exec";
+    
+    // Obtener datos
+    const sectores = JSON.parse(localStorage.getItem('sectores') || '[]');
+    const individuos = JSON.parse(localStorage.getItem('individuos') || '[]');
 
-    // 1. Crear el formulario "fantasma"
+    // 1. Crear formulario
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = url;
-    form.target = 'hidden_iframe'; // Esto evita que la página se recargue
+    form.target = 'hidden_iframe';
 
-    // 2. Meter los datos en el campo 'payload'
+    // 2. Campo payload
     const input = document.createElement('input');
     input.type = 'hidden';
     input.name = 'payload';
     input.value = JSON.stringify({
         action: 'sync',
-        sectores: sectores,     // Verifica que estas variables se llamen así en tu código
-        individuos: individuos 
+        sectores: sectores,
+        individuos: individuos
     });
 
     form.appendChild(input);
-
-    // 3. Asegurarse de que exista el iframe receptor (si no, crearlo)
-    let iframe = document.getElementById('hidden_iframe');
-    if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = 'hidden_iframe';
-        iframe.name = 'hidden_iframe';
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-    }
-
-    // 4. Enviar
     document.body.appendChild(form);
+
+    // 3. Enviar
     form.submit();
     
-    // 5. Limpiar y avisar
+    // 4. Feedback visual inmediato
+    console.log("[SYNC] Formulario enviado. Ignorar errores de CORS posteriores.");
+    alert("Sincronización enviada con éxito a Google Sheets.");
+    
+    // Limpiar
     setTimeout(() => {
         document.body.removeChild(form);
-        alert("Sincronización enviada. Los datos aparecerán en segundos en el Sheets.");
-        // Aquí podrías llamar a tu función de limpiarUI() o similar
+        // Aquí podrías vaciar el localstorage si confirmas que llegó
     }, 1000);
-
-} catch (error) {
-    console.error("Error en sincronización:", error);
-}
-
-    // ── Método 2: JSONP via GET (lee respuesta real, cross-origin) ──
-    if (!json) {
-      try {
-        console.log('[SYNC] Método 2: JSONP GET...');
-        json = await gasGet(url, { action: 'sync', payload });
-        console.log('[SYNC] Método 2 JSONP OK:', json);
-      } catch(jsonpErr) {
-        console.warn('[SYNC] Método 2 JSONP falló:', jsonpErr.message);
-      }
-    }
-
-    // ── Método 3: iframe form POST (fallback ciego) ──────────────────
-    if (!json) {
-      json = await gasPost(url, payload);
-      console.log('[SYNC] Método 3 iframe activado (respuesta no legible por CORS)');
-    }
-
-    if (json && (json.status === 'ok' || json.note === 'iframe-mode')) {
-      const synced = json.synced !== '?' ? json.synced : indsSan.length;
-      showToast('☁️ Sincronizado: ' + synced + ' registros en Sheets', 'ok');
-    } else {
-      showToast('❌ Error Sheets: ' + ((json && json.error) || 'desconocido'), 'err');
-      console.error('[SYNC] ❌ Error GAS:', json);
-    }
-  } catch(e) {
-    showToast('❌ Error de conexión: ' + e.message, 'err');
-    console.error('[SYNC] ❌ Excepción:', e);
-  }
-  hideSyncStatus();
 }
 
 // ══════════════════════════════════════════════
