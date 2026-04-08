@@ -2006,20 +2006,53 @@ async function sincronizarConSheets() {
 
     // ── Método 1: fetch POST text/plain (sin preflight) ─────────────
     try {
-      const res = await fetch(url, {
-        method:  'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body:    payload,
-        signal:  AbortSignal.timeout(15000)
-      });
-      if (res.ok) {
-        const text = await res.text();
-        json = JSON.parse(text);
-        console.log('[SYNC] Método 1 fetch OK:', json);
-      }
-    } catch(fetchErr) {
-      console.warn('[SYNC] Método 1 fetch bloqueado:', fetchErr.message);
+    const url = "https://script.google.com/macros/s/AKfycbxGMlxwbKp8y2yt1F21wVsO_JYbYpyZ3KnxLpe0jrOE07kGzC4farXNszVIjW2z42E7/exec";
+    
+    // Mostramos en consola para seguimiento
+    console.log("[SYNC] Enviando datos vía Form-Iframe para evitar 403...");
+
+    // 1. Crear el formulario "fantasma"
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url;
+    form.target = 'hidden_iframe'; // Esto evita que la página se recargue
+
+    // 2. Meter los datos en el campo 'payload'
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    input.value = JSON.stringify({
+        action: 'sync',
+        sectores: sectores,     // Verifica que estas variables se llamen así en tu código
+        individuos: individuos 
+    });
+
+    form.appendChild(input);
+
+    // 3. Asegurarse de que exista el iframe receptor (si no, crearlo)
+    let iframe = document.getElementById('hidden_iframe');
+    if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'hidden_iframe';
+        iframe.name = 'hidden_iframe';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
     }
+
+    // 4. Enviar
+    document.body.appendChild(form);
+    form.submit();
+    
+    // 5. Limpiar y avisar
+    setTimeout(() => {
+        document.body.removeChild(form);
+        alert("Sincronización enviada. Los datos aparecerán en segundos en el Sheets.");
+        // Aquí podrías llamar a tu función de limpiarUI() o similar
+    }, 1000);
+
+} catch (error) {
+    console.error("Error en sincronización:", error);
+}
 
     // ── Método 2: JSONP via GET (lee respuesta real, cross-origin) ──
     if (!json) {
