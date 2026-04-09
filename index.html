@@ -502,6 +502,104 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   font-size: 11px; color: var(--gris-texto);
   text-align: center; margin-top: 4px;
 }
+
+/* ── FICHA INDIVIDUAL MODAL ── */
+#ficha-modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 3000; align-items: center; justify-content: center; padding: 12px;
+  overflow-y: auto;
+}
+#ficha-modal-overlay.open { display: flex; }
+.ficha-modal {
+  background: #fff; border-radius: 16px; width: 100%; max-width: 620px;
+  max-height: 92vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  font-family: 'DM Sans', sans-serif;
+}
+.ficha-header-proyecto {
+  background: var(--verde-oscuro); color: #fff;
+  padding: 14px 20px; border-radius: 16px 16px 0 0;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+}
+.ficha-header-proyecto h3 {
+  font-size: 12px; font-weight: 600; line-height: 1.4; margin: 0;
+  font-family: 'DM Sans', sans-serif; letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.ficha-titulo-central {
+  background: var(--verde); color: #fff; text-align: center;
+  padding: 8px 20px; font-size: 13px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.ficha-body { padding: 0; }
+.ficha-section-title {
+  background: var(--verde); color: #fff;
+  padding: 6px 16px; font-size: 11px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+}
+.ficha-grid-2 {
+  display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #e0e0e0;
+}
+.ficha-grid-3 {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; border-bottom: 1px solid #e0e0e0;
+}
+.ficha-cell {
+  padding: 8px 14px; border-right: 1px solid #e0e0e0;
+  font-size: 12px; color: #333;
+}
+.ficha-cell:last-child { border-right: none; }
+.ficha-cell-label {
+  font-size: 10px; font-weight: 700; color: #888; letter-spacing: .04em;
+  text-transform: uppercase; margin-bottom: 2px;
+}
+.ficha-cell-val { font-size: 13px; font-weight: 600; color: var(--negro); }
+.ficha-tabla-daso {
+  width: 100%; border-collapse: collapse; font-size: 11px;
+}
+.ficha-tabla-daso th {
+  background: var(--verde-oscuro); color: #fff;
+  padding: 6px 10px; text-align: center; font-size: 10px; letter-spacing: .04em;
+}
+.ficha-tabla-daso td {
+  padding: 8px 10px; text-align: center; border: 1px solid #e0e0e0; font-weight: 600;
+}
+.ficha-obs-box {
+  padding: 12px 16px; font-size: 12px; line-height: 1.6;
+  color: #444; border-bottom: 1px solid #e0e0e0; background: #fafafa;
+}
+.ficha-rec-box {
+  padding: 12px 16px; font-size: 12px; line-height: 1.6; color: #444; background: #fafafa;
+}
+.ficha-coords {
+  display: grid; grid-template-columns: 1fr 1fr;
+  background: var(--verde-oscuro); color: #fff;
+  border-radius: 0 0 16px 16px;
+}
+.ficha-coord-cell {
+  padding: 10px 16px; text-align: center;
+  border-right: 1px solid rgba(255,255,255,0.2);
+}
+.ficha-coord-cell:last-child { border-right: none; }
+.ficha-coord-label { font-size: 10px; opacity: .7; letter-spacing: .05em; text-transform: uppercase; }
+.ficha-coord-val { font-size: 13px; font-weight: 600; margin-top: 2px; }
+.ficha-foto-box {
+  width: 180px; flex-shrink: 0; background: #eee;
+  border-radius: 8px; overflow: hidden; min-height: 140px;
+  display: flex; align-items: center; justify-content: center;
+}
+.ficha-foto-box img { width: 100%; height: 100%; object-fit: cover; }
+.ficha-foto-placeholder { font-size: 40px; }
+.ficha-estado-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;
+}
+.ficha-estado-verde  { background: #d8f3dc; color: #1b4332; }
+.ficha-estado-amarillo { background: #fff3cd; color: #856404; }
+.ficha-estado-rojo   { background: #ffe0e3; color: #c1121f; }
+@media(max-width:600px){
+  .ficha-foto-box { display: none; }
+  .ficha-grid-2,.ficha-grid-3 { grid-template-columns: 1fr; }
+  .ficha-tabla-daso th, .ficha-tabla-daso td { font-size: 10px; padding: 5px 6px; }
+}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
@@ -671,6 +769,7 @@ body {
         <button class="btn-primary admin-only" onclick="openIndividuoModal()">＋ Agregar árbol</button>
         <button class="btn-secondary admin-only" onclick="exportCSV()">↓ Exportar CSV</button>
       </div>
+      <div style="font-size:11px;color:var(--gris-texto);margin-bottom:6px;">💡 Haz clic en cualquier fila para ver la ficha técnica completa del árbol</div>
       <div class="table-wrap">
         <table>
           <thead><tr>
@@ -784,7 +883,7 @@ body {
           <div class="export-btn-row">
             <button class="btn-export btn-export-green" onclick="exportarFichasExcel()" style="background:#1a7b4a;">
               <span style="font-size:20px;line-height:1;">📋</span>
-              <div><div>Generar Fichas en Excel (Formato Cornare)</div><div class="btn-export-desc">Genera hoja "Fichas" en el Spreadsheet con formato técnico de campo</div></div>
+              <div><div>Generar Fichas en Excel (Formato Guatapé)</div><div class="btn-export-desc">Genera hoja "Fichas" en el Spreadsheet con formato técnico de campo</div></div>
             </button>
           </div>
 
@@ -1153,9 +1252,10 @@ async function renderDashboard() {
   const individuos = await dbGetAll('individuos');
 
   const totalInd  = individuos.reduce((s,i) => s + (parseInt(i.cantidad)||1), 0);
-  const verde     = individuos.filter(i=>i.estado==='verde').length;
-  const amarillo  = individuos.filter(i=>i.estado==='amarillo').length;
-  const rojo      = individuos.filter(i=>i.estado==='rojo').length;
+  // Semáforos basados en CANTIDAD de individuos, no registros
+  const verde     = individuos.reduce((s,i)=> s + (i.estado==='verde'    ? (parseInt(i.cantidad)||1) : 0), 0);
+  const amarillo  = individuos.reduce((s,i)=> s + (i.estado==='amarillo' ? (parseInt(i.cantidad)||1) : 0), 0);
+  const rojo      = individuos.reduce((s,i)=> s + (i.estado==='rojo'     ? (parseInt(i.cantidad)||1) : 0), 0);
   const conCoords = individuos.filter(i=>i.lat && i.lng).length;
 
   document.getElementById('stat-cards').innerHTML = `
@@ -1205,6 +1305,22 @@ async function renderDashboard() {
       </div>
     </div>
   `;
+
+  // Tabla árboles urgentes
+  const urgentes = individuos.filter(i => i.accion === 'urgente');
+  const sMap2 = {}; sectores.forEach(s => sMap2[s.id] = s.nombre);
+  const urgTbody = document.getElementById('urgent-tbody');
+  if (urgTbody) {
+    urgTbody.innerHTML = urgentes.length === 0
+      ? '<tr><td colspan="5" style="text-align:center;padding:14px;color:var(--gris-texto);">Sin árboles urgentes registrados</td></tr>'
+      : urgentes.map(i => `<tr style="cursor:pointer;" onclick="openFichaModal(${i.id})">
+          <td>${i.codigo||('#'+i.id)}</td>
+          <td><b>${i.nombre}</b>${i.cientifico?'<br><small style="color:var(--gris-texto);font-style:italic;">'+i.cientifico+'</small>':''}</td>
+          <td>${sMap2[i.sectorId]||'—'}</td>
+          <td>${semaforoHTML(i.estado)}</td>
+          <td><span class="accion-badge accion-urgente">⚠️ URGENTE</span></td>
+        </tr>`).join('');
+  }
 }
 
 function goSectores(){ showTab('sectores'); }
@@ -1270,18 +1386,10 @@ async function renderSectores() {
     // Filtramos los individuos de este sector
     const inds = individuos.filter(i => i.sectorId === s.id || i.sector === s.nombre);
     
-    // CALCULAMOS EL TOTAL REAL
-    // Si la app creó 38 registros individuales, sumamos 1 por cada registro.
-    // Si un registro dice ser un grupo (cantidad > 1), sumamos esa cantidad.
-    let totalIndividuos = 0;
-    inds.forEach(i => {
-       const c = parseInt(i.cantidad);
-       // Si la cantidad es igual al total de registros, es un error de guardado y tomamos 1
-       // Si no, sumamos la cantidad que diga el registro
-       totalIndividuos += (c > 1 && inds.length === 1) ? c : 1; 
-    });
-
-    const criticos = inds.filter(i => i.estado === 'rojo').length;
+    // Total individuos = suma de cantidad de cada registro
+    const totalIndividuos = inds.reduce((s,i) => s + (parseInt(i.cantidad)||1), 0);
+    // Críticos = suma de individuos en estado rojo
+    const criticos = inds.reduce((s,i) => s + (i.estado==='rojo' ? (parseInt(i.cantidad)||1) : 0), 0);
     const borderColor = criticos > 0 ? 'var(--semaforo-rojo)' : inds.some(i => i.estado === 'amarillo') ? 'var(--semaforo-amarillo)' : 'var(--verde)';
 
     return `<div class="sector-card" style="border-left-color:${borderColor}" onclick="showSectorDetail(${s.id})">
@@ -1328,7 +1436,7 @@ async function showSectorDetail(sectorId) {
     const expandido   = !!expandedGroups[r.id];
     const coordIco    = (r.lat&&r.lng) ? '<small style="color:var(--verde-claro);font-size:10px;margin-left:3px;">📍</small>' : '';
 
-    const filaRaiz = '<tr style="background:' + (expandido?'#f0faf4':'') + '">'
+    const filaRaiz = '<tr style="background:' + (expandido?'#f0faf4':'') + ';cursor:pointer;" onclick="openFichaModal(' + r.id + ')">'
       + '<td style="font-size:12px;color:var(--gris-texto);">#' + r.id + '</td>'
       + '<td>' + fotoThumb(r) + '</td>'
       + '<td><b>' + r.nombre + '</b>'
@@ -1344,9 +1452,9 @@ async function showSectorDetail(sectorId) {
       + '<td style="max-width:160px;font-size:12px;color:var(--gris-texto);">' + (r.obs||'—') + '</td>'
       + (currentRole==='admin'
           ? '<td style="white-space:nowrap;">'
-              + '<button class="btn-tiny btn-edit" data-action="edit" data-id="' + r.id + '" style="cursor:pointer;">✏️</button> '
+              + '<button class="btn-tiny btn-edit" data-action="edit" data-id="' + r.id + '" onclick="event.stopPropagation()" style="cursor:pointer;">✏️</button> '
               + '<button class="btn-tiny btn-del"  data-action="del"  data-id="' + r.id + '" data-sector="' + sectorId + '" style="cursor:pointer;">🗑</button> '
-              + '<button data-action="ubicar" data-id="' + r.id + '" style="background:var(--verde-claro);color:#fff;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;">📍 Ubicar</button>'
+              + '<button data-action="ubicar" data-id="' + r.id + '" onclick="event.stopPropagation()" style="background:var(--verde-claro);color:#fff;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;">📍 Ubicar</button>'
               + '</td>'
           : '')
       + '</tr>';
@@ -1357,7 +1465,7 @@ async function showSectorDetail(sectorId) {
         const coordH = (h.lat&&h.lng)
           ? '<button onclick="verEnMapa(' + parseFloat(h.lat) + ',' + parseFloat(h.lng) + ',\''+h.nombre+'\',\''+h.estado+'\')" style="background:var(--verde);color:#fff;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;margin-top:2px;">📍 Ver en mapa</button>'
           : '<small style="color:var(--gris-texto);font-size:10px;">Sin coordenadas</small>';
-        return '<tr style="background:#e8f5ee;border-left:3px solid var(--verde-claro);">'
+        return '<tr style="background:#e8f5ee;border-left:3px solid var(--verde-claro);cursor:pointer;" onclick="openFichaModal(' + h.id + ')">'
           + '<td style="font-size:11px;color:var(--gris-texto);padding-left:16px;">↳ #' + h.id + '</td>'
           + '<td>' + fotoThumb(h) + '</td>'
           + '<td style="padding-left:8px;"><span style="font-size:13px;">' + h.nombre + ' <b style="color:var(--verde);">#' + (idx+1) + '</b></span>'
@@ -1372,7 +1480,7 @@ async function showSectorDetail(sectorId) {
               ? '<td style="white-space:nowrap;">'
                   + '<button class="btn-tiny btn-edit" data-action="edit"   data-id="' + h.id + '" style="cursor:pointer;">✏️</button> '
                   + '<button class="btn-tiny btn-del"  data-action="del"    data-id="' + h.id + '" data-sector="' + sectorId + '" style="cursor:pointer;">🗑</button> '
-                  + '<button data-action="ubicar" data-id="' + h.id + '" style="background:var(--verde-claro);color:#fff;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;">📍 Ubicar</button>'
+                  + '<button data-action="ubicar" data-id="' + h.id + '" onclick="event.stopPropagation()" style="background:var(--verde-claro);color:#fff;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;">📍 Ubicar</button>'
                   + '</td>'
               : '')
           + '</tr>';
@@ -1533,16 +1641,16 @@ async function renderTable() {
   const tbody = document.getElementById('ind-tbody');
   tbody.innerHTML = filtered.length === 0
     ? '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--gris-texto);">Sin resultados</td></tr>'
-    : filtered.map(i=>`<tr>
+    : filtered.map(i=>`<tr style="cursor:pointer;" onclick="openFichaModal(${i.id})">
         <td>#${i.id}</td>
         <td>${fotoThumb(i)}</td>
-        <td><b>${i.nombre}</b></td>
-        <td style="font-style:italic;color:var(--gris-texto);">${i.cientifico||'—'}</td>
+        <td><b>${i.nombre}</b><br><span style="font-size:10px;color:var(--verde);font-weight:600;">${i.codigo||''}</span></td>
+        <td style="font-style:italic;color:var(--gris-texto);font-size:12px;">${i.cientifico||'—'}</td>
         <td>${sMap[i.sectorId]||'—'}</td>
         <td>${semaforoHTML(i.estado)}</td>
         <td><span class="accion-badge accion-${i.accion}">${accionLabel(i.accion)}</span></td>
-        <td style="font-size:12px;">${i.lat&&i.lng?`<button onclick="verEnMapa(${parseFloat(i.lat)},${parseFloat(i.lng)},'${i.nombre.replace(/'/g,"\\'")}','${i.estado}')" style="background:var(--verde);color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;">📍 Ver</button>`:'<span style="color:var(--gris-texto);">—</span>'}</td>
-        ${currentRole==='admin'?`<td style="white-space:nowrap;"><button class="btn-tiny btn-edit" onclick="openIndividuoModal(${i.id})">✏️</button> <button class="btn-tiny btn-del" onclick="deleteIndividuo(${i.id})">🗑</button></td>`:'<td></td>'}
+        <td style="font-size:12px;" onclick="event.stopPropagation()">${i.lat&&i.lng?`<button onclick="verEnMapa(${parseFloat(i.lat)},${parseFloat(i.lng)},'${i.nombre.replace(/'/g,"\\'")}','${i.estado}')" style="background:var(--verde);color:#fff;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;">📍 Ver</button>`:'<span style="color:var(--gris-texto);">—</span>'}</td>
+        ${currentRole==='admin'?`<td style="white-space:nowrap;" onclick="event.stopPropagation()"><button class="btn-tiny btn-edit" onclick="openIndividuoModal(${i.id})">✏️</button> <button class="btn-tiny btn-del" onclick="deleteIndividuo(${i.id})">🗑</button></td>`:'<td></td>'}
       </tr>`).join('');
 }
 
@@ -2422,7 +2530,7 @@ async function exportarKML() {
   }
 }
 
-// 6. Generar Fichas Excel en formato Cornare (vía Apps Script)
+// 6. Generar Fichas Excel en formato Guatapé (vía Apps Script)
 async function exportarFichasExcel() {
   const res = document.getElementById('export-result');
   const url = getCfg('gs_url', '');
@@ -2484,96 +2592,486 @@ function showToast(msg, type='ok') {
 //  GOOGLE APPS SCRIPT — CÓDIGO PARA COPIAR
 // ══════════════════════════════════════════════
 function getGASCode() {
-return `// ============================================
-// Inventario Árboles Guatapé — Apps Script v2.0
+return `// ============================================================
+// Inventario Arbóreo Guatapé — Google Apps Script v3.0
+// ============================================================
+// INSTRUCCIONES:
 // 1. Ve a script.google.com → Nuevo proyecto
 // 2. Pega este código completo
-// 3. Implementar → Web App → Acceso: Cualquiera
-// 4. Copia la URL y pégala en Config > Drive
-// ============================================
+// 3. Implementar → Nueva implementación → Web App
+//    · Ejecutar como: Yo mismo
+//    · Acceso: Cualquiera
+// 4. Copia la URL generada y pégala en la app:
+//    Configuración > Drive > URL Apps Script
+// ============================================================
 
-const SHEET_ID = '${SHEET_ID}';
+const SHEET_ID        = '1O1AKPSIXganmfIC7BWqkKr6znrdc9k4LngOI9yTYPII';
+const FOLDER_FOTOS_ID = '1rxbmDWbOJnHjSVTn8La-k_K-AyJ8R1qyNt7MMzB1IQEVbCrCpUs6iT_tKZiQ-VJIiwsxpl7X';
 
+// ──────────────────────────────────────────────────────
+//  GET: ping / load / exportarExcel
+// ──────────────────────────────────────────────────────
 function doGet(e) {
-  const action = e.parameter.action;
+  var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'ping';
+
   if (action === 'ping') {
-    return jsonResponse({ status: 'ok', message: 'Inventario Árboles Guatapé activo ✅' });
+    return jsonResponse({ status: 'ok', message: 'Inventario Arbóreo Guatapé — activo ✅ v3.0' });
   }
   if (action === 'load') {
-    return loadFromSheets();
+    return loadFromSheets(e);
+  }
+  if (action === 'exportarExcel') {
+    return exportarExcelFichas();
+  }
+  // Soporte JSONP (evita CORS en algunos navegadores)
+  if (e && e.parameter && e.parameter.callback) {
+    var data = { status: 'ok' };
+    return ContentService
+      .createTextOutput(e.parameter.callback + '(' + JSON.stringify(data) + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
   return jsonResponse({ status: 'ok' });
 }
 
+// ──────────────────────────────────────────────────────
+//  POST: sync
+// ──────────────────────────────────────────────────────
 function doPost(e) {
   try {
-    const data = JSON.parse(e.postData.contents);
-    if (data.action === 'sync') {
-      syncToSheets(data.sectores, data.individuos);
-      return jsonResponse({ status: 'ok', synced: data.individuos.length });
+    var raw = e.postData ? e.postData.contents : '';
+    var data;
+    try {
+      data = JSON.parse(raw);
+    } catch (parseErr) {
+      // Intento con campo "payload" (formulario iframe)
+      if (e.parameter && e.parameter.payload) {
+        data = JSON.parse(e.parameter.payload);
+      } else {
+        throw new Error('No se pudo parsear el body: ' + parseErr.message);
+      }
     }
-    return jsonResponse({ status: 'error', error: 'Acción desconocida' });
-  } catch(err) {
+
+    if (data.action === 'sync') {
+      syncToSheets(data.sectores || [], data.individuos || []);
+      return jsonResponse({ status: 'ok', synced: (data.individuos || []).length });
+    }
+    if (data.action === 'exportarExcel') {
+      return exportarExcelFichas();
+    }
+    return jsonResponse({ status: 'error', error: 'Acción desconocida: ' + data.action });
+
+  } catch (err) {
     return jsonResponse({ status: 'error', error: err.message });
   }
 }
 
-function loadFromSheets() {
+// ──────────────────────────────────────────────────────
+//  LOAD: leer Sheets → JSON para la app
+// ──────────────────────────────────────────────────────
+function loadFromSheets(e) {
   try {
-    const ss  = SpreadsheetApp.openById(SHEET_ID);
-    const shS = ss.getSheetByName('Sectores');
-    const shI = ss.getSheetByName('Individuos');
-    const sectores   = shS ? sheetToObjects(shS)   : [];
-    const individuos = shI ? sheetToObjects(shI)   : [];
-    return jsonResponse({ status: 'ok', sectores, individuos });
-  } catch(err) {
+    var ss  = SpreadsheetApp.openById(SHEET_ID);
+    var shS = ss.getSheetByName('Sectores');
+    var shI = ss.getSheetByName('Individuos');
+    var sectores   = shS ? sheetToObjects(shS) : [];
+    var individuos = shI ? sheetToObjects(shI) : [];
+    var result = { status: 'ok', sectores: sectores, individuos: individuos };
+
+    if (e && e.parameter && e.parameter.callback) {
+      return ContentService
+        .createTextOutput(e.parameter.callback + '(' + JSON.stringify(result) + ')')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+    return jsonResponse(result);
+  } catch (err) {
     return jsonResponse({ status: 'error', error: err.message });
   }
 }
 
 function sheetToObjects(sheet) {
-  const data = sheet.getDataRange().getValues();
+  var data = sheet.getDataRange().getValues();
   if (data.length < 2) return [];
-  const headers = data[0];
-  return data.slice(1).map(row => {
-    const obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
+  var headers = data[0];
+  return data.slice(1).map(function(row) {
+    var obj = {};
+    headers.forEach(function(h, i) { obj[h] = row[i] !== undefined ? row[i] : ''; });
     return obj;
   });
 }
 
+// ──────────────────────────────────────────────────────
+//  SYNC PRINCIPAL: escribe todas las hojas
+// ──────────────────────────────────────────────────────
 function syncToSheets(sectores, individuos) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = SpreadsheetApp.openById(SHEET_ID);
 
-  let shSec = ss.getSheetByName('Sectores');
-  if (!shSec) shSec = ss.insertSheet('Sectores');
+  // ── Hoja 1: Sectores ──────────────────────────────
+  var shSec = ss.getSheetByName('Sectores') || ss.insertSheet('Sectores');
   shSec.clearContents();
-  shSec.appendRow(['ID','Nombre','Área (m²)','Ubicación','Descripción','Actualizado']);
-  sectores.forEach(s => shSec.appendRow([s.id, s.nombre, s.area||'', s.ubicacion||'', s.desc||'', s.updatedAt||'']));
+  shSec.clearFormats();
 
-  let shInd = ss.getSheetByName('Individuos');
-  if (!shInd) shInd = ss.insertSheet('Individuos');
-  shInd.clearContents();
-  shInd.appendRow(['ID','Nombre Común','Nombre Científico','Sector ID','Cantidad','Estado','Acción','Observaciones','Latitud','Longitud','Fotos','Actualizado']);
-  individuos.forEach(i => shInd.appendRow([
-    i.id, i.nombre, i.cientifico||'', i.sectorId, i.cantidad||1,
-    i.estado, i.accion, i.obs||'', i.lat||'', i.lng||'',
-    i.fotos||'', i.updatedAt||''
-  ]));
+  var secHeaders = ['ID','Nombre Sector','Área (m²)','Ubicación','Descripción','Actualizado'];
+  shSec.getRange(1,1,1,secHeaders.length).setValues([secHeaders]);
+  estiloCabecera(shSec.getRange(1,1,1,secHeaders.length));
 
-  [shSec, shInd].forEach(sh => {
-    sh.getRange(1, 1, 1, sh.getLastColumn())
-      .setBackground('#1b4332').setFontColor('#ffffff').setFontWeight('bold');
-    sh.setFrozenRows(1);
-    sh.autoResizeColumns(1, sh.getLastColumn());
+  // Calcular totales por sector
+  var secRows = sectores.map(function(s) {
+    var inds = individuos.filter(function(i){ return String(i.sectorId) === String(s.id); });
+    var totalInds = inds.reduce(function(ac,i){ return ac + (parseInt(i.cantidad)||1); }, 0);
+    return [s.id, s.nombre, s.area||'', s.ubicacion||'', s.desc||'', s.updatedAt||''];
   });
+  if (secRows.length > 0) {
+    shSec.getRange(2,1,secRows.length,secHeaders.length).setValues(secRows);
+    shSec.getRange(2,1,secRows.length,secHeaders.length)
+      .setBackground('#f5fbf7').setFontSize(10).setWrap(true);
+    shSec.getRange(2,1,secRows.length,secHeaders.length)
+      .setBorder(true,true,true,true,true,true,'#dddddd',SpreadsheetApp.BorderStyle.SOLID);
+  }
+  shSec.setFrozenRows(1);
+  shSec.autoResizeColumns(1, secHeaders.length);
+
+  // ── Hoja 2: Individuos (inventario completo) ──────
+  var shInd = ss.getSheetByName('Individuos') || ss.insertSheet('Individuos');
+  shInd.clearContents();
+  shInd.clearFormats();
+
+  var indHeaders = [
+    'Código','Nombre Común','Nombre Científico','Familia','Sector',
+    'DAP (cm)','HT (m)','D Copa (m)','Hábito',
+    'Tratamiento','Tomografía','Estado','Acción',
+    'Observaciones','Recomendaciones','Latitud','Longitud','Actualizado'
+  ];
+  shInd.getRange(1,1,1,indHeaders.length).setValues([indHeaders]);
+  estiloCabecera(shInd.getRange(1,1,1,indHeaders.length));
+
+  // Construir mapa sector id → nombre
+  var sectorMap = {};
+  sectores.forEach(function(s){ sectorMap[String(s.id)] = s.nombre; });
+
+  var indRows = individuos.map(function(i) {
+    var parts    = splitObsRec(i.obs || '');
+    var acLabel  = accionLabel(i.accion);
+    return [
+      i.codigo || i.id,
+      i.nombre,
+      i.cientifico || '',
+      i.familia    || '',
+      sectorMap[String(i.sectorId)] || ('Sector '+i.sectorId),
+      i.dap  || '',
+      i.ht   || '',
+      i.copa || '',
+      i.habito     || 'Árbol',
+      i.tratamiento || '',
+      i.tomografia  || 'No',
+      estadoLabel(i.estado),
+      acLabel,
+      parts.obs,
+      parts.rec,
+      i.lat || '',
+      i.lng || '',
+      i.updatedAt || ''
+    ];
+  });
+
+  if (indRows.length > 0) {
+    shInd.getRange(2,1,indRows.length,indHeaders.length).setValues(indRows);
+
+    // Colorear por estado (columna 12)
+    for (var r = 0; r < indRows.length; r++) {
+      var estado  = individuos[r].estado;
+      var bgRow   = estado==='rojo' ? '#ffe0e3' : estado==='amarillo' ? '#fff8e1' : '#f0faf4';
+      var bgEstad = estado==='rojo' ? '#e63946' : estado==='amarillo' ? '#f4a261' : '#40916c';
+      shInd.getRange(r+2,1,1,indHeaders.length).setBackground(bgRow).setFontSize(10).setWrap(false);
+      shInd.getRange(r+2,12)  // Estado
+        .setBackground(bgEstad).setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
+    }
+    shInd.getRange(2,1,indRows.length,indHeaders.length)
+      .setBorder(true,true,true,true,true,true,'#cccccc',SpreadsheetApp.BorderStyle.SOLID);
+
+    // Anchos
+    var wInd = [70,140,150,110,130,55,55,70,60,130,70,80,100,250,200,90,90,95];
+    wInd.forEach(function(w,i){ shInd.setColumnWidth(i+1,w); });
+  }
+  shInd.setFrozenRows(1);
+
+  // ── Hoja 3: Fichas (formato técnico Guatapé) ──────
+  generarHojaFichas(ss, individuos, sectores, sectorMap);
+
+  // ── Hoja 4: Resumen por sector ────────────────────
+  generarResumen(ss, individuos, sectores, sectorMap);
+}
+
+// ──────────────────────────────────────────────────────
+//  HOJA FICHAS — formato técnico de campo (Guatapé)
+//  Una fila por individuo, cabeceras y colores institucionales
+// ──────────────────────────────────────────────────────
+function generarHojaFichas(ss, individuos, sectores, sectorMap) {
+  var shF = ss.getSheetByName('Fichas') || ss.insertSheet('Fichas');
+  shF.clearContents();
+  shF.clearFormats();
+  shF.setColumnWidth(1,5);  // margen visual izquierdo
+
+  // ── Fila 1: Encabezado institucional del municipio ──
+  shF.getRange(1,1,1,20).merge()
+    .setValue('MUNICIPIO DE GUATAPÉ — INVENTARIO ARBÓREO EN ESPACIO PÚBLICO — ' + new Date().getFullYear())
+    .setBackground('#1b4332')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setFontSize(11)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+  shF.setRowHeight(1, 34);
+
+  // ── Fila 2: Subtítulo ──
+  shF.getRange(2,1,1,20).merge()
+    .setValue('FICHA TÉCNICA DE REGISTRO DE INDIVIDUOS ARBÓREOS')
+    .setBackground('#2d6a4f')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setFontSize(10)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+  shF.setRowHeight(2, 26);
+
+  // ── Fila 3: Cabeceras de columna ──
+  var fichaHeaders = [
+    'ID Árbol','Fecha Visita','Municipio',
+    'Familia Botánica','Nombre Científico','Nombre Común',
+    'DAP (cm)','HT (m)','Copa (m)','Hábito',
+    'Tratamiento Realizado','Tomografía',
+    'Observaciones de Campo',
+    'Recomendaciones de Intervención',
+    'Sector / Espacio Público',
+    'Latitud','Longitud',
+    'Estado Fitosanitario','Acción Requerida','Fecha Actualización'
+  ];
+  shF.getRange(3,1,1,fichaHeaders.length).setValues([fichaHeaders]);
+  estiloCabecera(shF.getRange(3,1,1,fichaHeaders.length), '#52b788', '#1b4332');
+  shF.getRange(3,1,1,fichaHeaders.length).setFontSize(9).setWrap(true);
+  shF.setRowHeight(3, 38);
+
+  // ── Filas de datos ──
+  var dataRows = [];
+  individuos.forEach(function(ind) {
+    var parts    = splitObsRec(ind.obs || '');
+    var secNom   = sectorMap[String(ind.sectorId)] || ('Sector ' + ind.sectorId);
+    var acLabel  = accionLabel(ind.accion);
+    var fecha    = (ind.updatedAt || '').substring(0,10) || '12/04/2024';
+
+    dataRows.push([
+      ind.codigo   || ('#' + ind.id),
+      fecha,
+      'Guatapé',
+      ind.familia  || '',
+      ind.cientifico || '',
+      ind.nombre,
+      ind.dap      || '',
+      ind.ht       || '',
+      ind.copa     || '',
+      ind.habito   || 'Árbol',
+      ind.tratamiento || '',
+      ind.tomografia  || 'No',
+      parts.obs,
+      parts.rec,
+      secNom,
+      ind.lat || '',
+      ind.lng || '',
+      estadoLabel(ind.estado),
+      acLabel,
+      ind.updatedAt || ''
+    ]);
+  });
+
+  if (dataRows.length > 0) {
+    var dataRange = shF.getRange(4, 1, dataRows.length, fichaHeaders.length);
+    dataRange.setValues(dataRows);
+    dataRange.setFontSize(9).setWrap(true).setVerticalAlignment('top');
+
+    for (var r = 0; r < dataRows.length; r++) {
+      var est = individuos[r].estado;
+      var bgRow, bgEst, fgEst;
+      if (est === 'rojo') {
+        bgRow = '#fff5f5'; bgEst = '#c1121f'; fgEst = '#ffffff';
+      } else if (est === 'amarillo') {
+        bgRow = (r%2===0) ? '#fffdf0' : '#fff8e1'; bgEst = '#e08f00'; fgEst = '#ffffff';
+      } else {
+        bgRow = (r%2===0) ? '#f0faf4' : '#ffffff'; bgEst = '#1b7a47'; fgEst = '#ffffff';
+      }
+      shF.getRange(r+4, 1, 1, fichaHeaders.length)
+        .setBackground(bgRow).setFontSize(9);
+      // Estado col 18 resaltado
+      shF.getRange(r+4, 18)
+        .setBackground(bgEst).setFontColor(fgEst)
+        .setFontWeight('bold').setHorizontalAlignment('center');
+      // Tomografía col 12 resaltada si es Sí
+      if ((individuos[r].tomografia || 'No').toLowerCase() === 'si') {
+        shF.getRange(r+4, 12).setBackground('#d8f3dc').setFontColor('#1b4332').setFontWeight('bold');
+      }
+      shF.setRowHeight(r+4, 72);
+    }
+
+    dataRange.setBorder(
+      true,true,true,true,true,true,
+      '#bbbbbb', SpreadsheetApp.BorderStyle.SOLID
+    );
+
+    // Anchos de columna (px)
+    var wFichas = [72,80,70,110,150,140,52,52,60,58,130,70,280,220,130,80,80,90,100,90];
+    wFichas.forEach(function(w,i){ shF.setColumnWidth(i+1,w); });
+  }
+
+  shF.setFrozenRows(3);
+
+  // Anclar cabecera con color diferenciado
+  shF.getRange(1,1,3,fichaHeaders.length)
+    .setBorder(true,true,true,true,false,false,'#1b4332',SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+}
+
+// ──────────────────────────────────────────────────────
+//  HOJA RESUMEN POR SECTOR — conteo de individuos reales
+// ──────────────────────────────────────────────────────
+function generarResumen(ss, individuos, sectores, sectorMap) {
+  var shR = ss.getSheetByName('Resumen') || ss.insertSheet('Resumen');
+  shR.clearContents();
+  shR.clearFormats();
+
+  // Encabezado
+  shR.getRange(1,1,1,10).merge()
+    .setValue('RESUMEN INVENTARIO ARBÓREO — MUNICIPIO DE GUATAPÉ — ' + new Date().getFullYear())
+    .setBackground('#1b4332').setFontColor('#ffffff').setFontWeight('bold')
+    .setFontSize(11).setHorizontalAlignment('center');
+  shR.setRowHeight(1,32);
+
+  var resHeaders = [
+    'Sector','Registros','Individuos Totales',
+    'Individuos Buen Estado','Individuos Estado Regular','Individuos Estado Crítico',
+    'Acciones Urgentes','% Críticos'
+  ];
+  shR.getRange(2,1,1,resHeaders.length).setValues([resHeaders]);
+  estiloCabecera(shR.getRange(2,1,1,resHeaders.length));
+
+  var resRows = [];
+  var totals  = [0,0,0,0,0,0];
+
+  sectores.forEach(function(s) {
+    var inds     = individuos.filter(function(i){ return String(i.sectorId) === String(s.id); });
+    var registros = inds.length;
+    // INDIVIDUOS = suma de cantidad de cada registro
+    var totalInds = inds.reduce(function(ac,i){ return ac + (parseInt(i.cantidad)||1); }, 0);
+    var verde     = inds.reduce(function(ac,i){ return ac + (i.estado==='verde'    ? (parseInt(i.cantidad)||1) : 0); }, 0);
+    var amarillo  = inds.reduce(function(ac,i){ return ac + (i.estado==='amarillo' ? (parseInt(i.cantidad)||1) : 0); }, 0);
+    var rojo      = inds.reduce(function(ac,i){ return ac + (i.estado==='rojo'     ? (parseInt(i.cantidad)||1) : 0); }, 0);
+    var urgentes  = inds.reduce(function(ac,i){ return ac + (i.accion==='urgente'  ? (parseInt(i.cantidad)||1) : 0); }, 0);
+    var pct       = totalInds > 0 ? (rojo/totalInds*100).toFixed(1)+'%' : '0%';
+    resRows.push([s.nombre, registros, totalInds, verde, amarillo, rojo, urgentes, pct]);
+    totals[0] += registros;
+    totals[1] += totalInds;
+    totals[2] += verde;
+    totals[3] += amarillo;
+    totals[4] += rojo;
+    totals[5] += urgentes;
+  });
+
+  // Fila de totales
+  var pctTotal = totals[1] > 0 ? (totals[4]/totals[1]*100).toFixed(1)+'%' : '0%';
+  resRows.push(['TOTAL MUNICIPIO', totals[0], totals[1], totals[2], totals[3], totals[4], totals[5], pctTotal]);
+
+  if (resRows.length > 0) {
+    shR.getRange(3,1,resRows.length,resHeaders.length).setValues(resRows).setFontSize(10);
+
+    // Colorear filas por criticidad
+    for (var r = 0; r < resRows.length-1; r++) {
+      var bg = resRows[r][5] > 0 ? '#fff5f5' : resRows[r][4] > 0 ? '#fffdf0' : '#f0faf4';
+      shR.getRange(r+3,1,1,resHeaders.length).setBackground(bg);
+      if (resRows[r][5] > 0) {
+        shR.getRange(r+3,6).setBackground('#e63946').setFontColor('#fff').setFontWeight('bold');
+      }
+      if (resRows[r][6] > 0) {
+        shR.getRange(r+3,7).setBackground('#ff6b35').setFontColor('#fff').setFontWeight('bold');
+      }
+    }
+    // Fila total
+    shR.getRange(resRows.length+2,1,1,resHeaders.length)
+      .setBackground('#1b4332').setFontColor('#ffffff').setFontWeight('bold').setFontSize(10);
+
+    shR.getRange(3,1,resRows.length,resHeaders.length)
+      .setBorder(true,true,true,true,true,true,'#cccccc',SpreadsheetApp.BorderStyle.SOLID);
+    shR.autoResizeColumns(1,resHeaders.length);
+  }
+  shR.setFrozenRows(2);
+}
+
+// ──────────────────────────────────────────────────────
+//  TRIGGER MANUAL: genera hoja Fichas desde Sheets
+// ──────────────────────────────────────────────────────
+function exportarExcelFichas() {
+  try {
+    var ss  = SpreadsheetApp.openById(SHEET_ID);
+    var shI = ss.getSheetByName('Individuos');
+    var shS = ss.getSheetByName('Sectores');
+    if (!shI || !shS) {
+      return jsonResponse({ status: 'error', error: 'Primero sincroniza los datos desde la app' });
+    }
+    var individuos = sheetToObjects(shI);
+    var sectores   = sheetToObjects(shS);
+    var sectorMap  = {};
+    sectores.forEach(function(s){ sectorMap[String(s.id)] = s.nombre; });
+    generarHojaFichas(ss, individuos, sectores, sectorMap);
+    generarResumen(ss, individuos, sectores, sectorMap);
+    return jsonResponse({ status: 'ok', message: 'Hojas Fichas y Resumen regeneradas en el Spreadsheet ✅' });
+  } catch (err) {
+    return jsonResponse({ status: 'error', error: err.message });
+  }
+}
+
+// ──────────────────────────────────────────────────────
+//  UTILIDADES
+// ──────────────────────────────────────────────────────
+
+// Divide obs en observaciones + recomendaciones si hay "Recomendación:"
+function splitObsRec(text) {
+  if (!text) return { obs: '', rec: '' };
+  var idx = text.indexOf('Recomendación:');
+  if (idx < 0) idx = text.indexOf('Recomendacion:');
+  if (idx >= 0) {
+    return {
+      obs: text.substring(0, idx).trim(),
+      rec: text.substring(idx).replace(/^Recomendaci[oó]n[:\\s]*/i,'').trim()
+    };
+  }
+  // Si no hay marcador, las obs son todo
+  return { obs: text, rec: '' };
+}
+
+function estadoLabel(estado) {
+  return { 'verde':'🟢 Bueno', 'amarillo':'🟡 Regular', 'rojo':'🔴 Crítico' }[estado] || estado || '—';
+}
+
+function accionLabel(accion) {
+  return {
+    'sin-novedad': 'Sin novedad',
+    'normal':      'Mantenimiento',
+    'programado':  'Programado',
+    'urgente':     '⚠️ URGENTE'
+  }[accion] || accion || '—';
+}
+
+function estiloCabecera(range, bg, fg) {
+  range
+    .setBackground(bg  || '#1b4332')
+    .setFontColor(fg   || '#ffffff')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle')
+    .setWrap(true);
 }
 
 function jsonResponse(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
-}`;
+}
+`;
 }
 
 // ══════════════════════════════════════════════
@@ -2689,11 +3187,14 @@ const DATOS_INICIALES = {
   ]
 };
 
-// Intenta cargar datos desde Apps Script; si falla o no hay URL, usa el seed local
+// Seed con control de versión — siempre actualiza si la versión de datos cambió
+const DATA_VERSION = '2.1'; // Incrementar cuando cambien DATOS_INICIALES
 async function seedIfEmpty() {
   try {
-    const sectores = await dbGetAll('sectores');
-    if (sectores.length > 0) return; // Ya hay datos locales
+    const storedVer = localStorage.getItem('data_version');
+    const sectores  = await dbGetAll('sectores');
+    // Si ya hay datos Y la versión coincide, no hacer nada
+    if (sectores.length > 0 && storedVer === DATA_VERSION) return;
 
     const url = getCfg('gs_url', '');
     if (url) {
@@ -2716,12 +3217,14 @@ async function seedIfEmpty() {
     // Fallback: datos iniciales hardcodeados
     for (const s of DATOS_INICIALES.sectores)   await dbPut('sectores', s);
     for (const i of DATOS_INICIALES.individuos) await dbPut('individuos', i);
+    localStorage.setItem('data_version', DATA_VERSION);
+    console.log('[SEED] ✅ Datos iniciales cargados v' + DATA_VERSION);
   } catch(e) {
     console.error('seedIfEmpty error:', e);
-    // Último recurso: intentar seed directo
     try {
       for (const s of DATOS_INICIALES.sectores)   await dbPut('sectores', s);
       for (const i of DATOS_INICIALES.individuos) await dbPut('individuos', i);
+      localStorage.setItem('data_version', DATA_VERSION);
     } catch(e2) { console.error('Seed fallback también falló:', e2); }
   }
 }
@@ -2737,6 +3240,137 @@ function showLoginInfo(msg) {
   }
   el.style.display = '';
   el.textContent = msg;
+}
+
+
+// ══════════════════════════════════════════════
+//  FICHA INDIVIDUAL — Modal con formato técnico
+// ══════════════════════════════════════════════
+async function openFichaModal(id) {
+  const individuos = await dbGetAll('individuos');
+  const sectores   = await dbGetAll('sectores');
+  const ind = individuos.find(i => i.id === id);
+  if (!ind) return;
+  const sector = sectores.find(s => s.id === ind.sectorId);
+  const sectorNombre = sector ? sector.nombre : '—';
+
+  const accionLabel = {
+    'sin-novedad':'Sin novedad','normal':'Mantenimiento',
+    'programado':'Programado','urgente':'URGENTE'
+  }[ind.accion] || ind.accion || '—';
+
+  const estadoClass = { verde:'ficha-estado-verde', amarillo:'ficha-estado-amarillo', rojo:'ficha-estado-rojo' }[ind.estado] || 'ficha-estado-verde';
+  const estadoLabel = { verde:'🟢 Bueno', amarillo:'🟡 Regular', rojo:'🔴 Crítico' }[ind.estado] || ind.estado;
+
+  const fotoHtml = (ind.fotos && ind.fotos.length)
+    ? `<img src="${ind.fotos[0]}" alt="foto" style="width:100%;height:180px;object-fit:cover;">`
+    : `<div class="ficha-foto-placeholder">🌿</div>`;
+
+  const dap  = ind.dap  || '—';
+  const ht   = ind.ht   || '—';
+  const copa = ind.copa || '—';
+  const habito = ind.habito || 'Árbol';
+  const tratamiento = ind.tratamiento || '—';
+  const tomografia  = ind.tomografia  || 'No';
+  const familia     = ind.familia     || '—';
+  const cientifico  = ind.cientifico  || '—';
+  const codigo      = ind.codigo      || ('#' + ind.id);
+  const fecha       = (ind.updatedAt || '').substring(0,10) || '—';
+
+  // Split obs into observations + recommendations if "Recomendación:" present
+  let obsText = ind.obs || '—';
+  let recText = '';
+  const recIdx = obsText.indexOf('Recomendación:');
+  if (recIdx >= 0) {
+    recText = obsText.substring(recIdx + 14).trim();
+    obsText = obsText.substring(0, recIdx).trim();
+  }
+
+  // Coords display
+  const latVal = ind.lat || '—';
+  const lngVal = ind.lng || '—';
+
+  document.getElementById('ficha-modal-content').innerHTML = `
+    <!-- Cabecera institucional -->
+    <div class="ficha-header-proyecto">
+      <h3>CONTRATO DE CIENCIA, TECNOLOGÍA E INNOVACIÓN<br>CONSERVACIÓN Y PRESERVACIÓN DEL COMPONENTE ARBÓREO<br>MUNICIPIO DE GUATAPÉ</h3>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;">
+        <button onclick="closeFichaModal()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:13px;">✕</button>
+        <span class="ficha-estado-badge ${estadoClass}">${estadoLabel}</span>
+      </div>
+    </div>
+
+    <!-- Título central -->
+    <div class="ficha-titulo-central">FICHA TÉCNICA DE REGISTRO DE INDIVIDUOS ARBÓREOS</div>
+
+    <!-- Info operativa + foto -->
+    <div style="display:flex;gap:0;border-bottom:1px solid #e0e0e0;">
+      <div style="flex:1;">
+        <div class="ficha-section-title" style="margin-bottom:0;">INFORMACIÓN OPERATIVA</div>
+        <div class="ficha-grid-2">
+          <div class="ficha-cell"><div class="ficha-cell-label">ID Árbol</div><div class="ficha-cell-val">${codigo}</div></div>
+          <div class="ficha-cell"><div class="ficha-cell-label">Fecha de visita</div><div class="ficha-cell-val">${fecha}</div></div>
+        </div>
+        <div class="ficha-grid-2">
+          <div class="ficha-cell" style="grid-column:1/-1;"><div class="ficha-cell-label">Municipio</div><div class="ficha-cell-val">Guatapé</div></div>
+        </div>
+        <div class="ficha-section-title" style="margin-bottom:0;">IDENTIFICACIÓN BOTÁNICA</div>
+        <div class="ficha-grid-2">
+          <div class="ficha-cell"><div class="ficha-cell-label">Familia</div><div class="ficha-cell-val">${familia}</div></div>
+          <div class="ficha-cell"><div class="ficha-cell-label">Sector</div><div class="ficha-cell-val">${sectorNombre}</div></div>
+        </div>
+        <div class="ficha-grid-2">
+          <div class="ficha-cell" style="grid-column:1/-1;"><div class="ficha-cell-label">Nombre Científico</div><div class="ficha-cell-val" style="font-style:italic;">${cientifico}</div></div>
+        </div>
+        <div class="ficha-grid-2">
+          <div class="ficha-cell" style="grid-column:1/-1;"><div class="ficha-cell-label">Nombre Común</div><div class="ficha-cell-val">${ind.nombre}</div></div>
+        </div>
+      </div>
+      <!-- Foto -->
+      <div class="ficha-foto-box" style="min-height:220px;">${fotoHtml}</div>
+    </div>
+
+    <!-- Medidas dasométricas -->
+    <div class="ficha-section-title">MEDIDAS DASOMÉTRICAS Y ESTADO</div>
+    <table class="ficha-tabla-daso">
+      <thead><tr>
+        <th>DAP (cm)</th><th>HT (m)</th><th>D Copa Promedio (m)</th>
+        <th>Hábito</th><th>Tratamiento Realizado</th><th>Tomografía</th>
+      </tr></thead>
+      <tbody><tr>
+        <td>${dap}</td><td>${ht}</td><td>${copa}</td>
+        <td>${habito}</td><td>${tratamiento}</td>
+        <td style="background:${tomografia==='Si'?'#d8f3dc':'#fff'};color:${tomografia==='Si'?'#1b4332':'#666'};">${tomografia}</td>
+      </tr></tbody>
+    </table>
+
+    <!-- Observaciones -->
+    <div class="ficha-section-title" style="margin-top:0;">OBSERVACIONES</div>
+    <div class="ficha-obs-box">${obsText !== '—' ? obsText : '<span style="color:#aaa;">Sin observaciones registradas</span>'}</div>
+
+    <!-- Recomendaciones -->
+    <div class="ficha-section-title">RECOMENDACIONES DE INTERVENCIÓN</div>
+    <div class="ficha-rec-box">
+      ${recText || (ind.accion === 'urgente' ? '<span style="color:#c1121f;font-weight:700;">⚠️ ATENCIÓN URGENTE REQUERIDA</span>' : accionLabel)}
+    </div>
+
+    <!-- Coordenadas -->
+    <div class="ficha-coords">
+      <div class="ficha-coord-cell">
+        <div class="ficha-coord-label">Latitud</div>
+        <div class="ficha-coord-val">${latVal}</div>
+      </div>
+      <div class="ficha-coord-cell">
+        <div class="ficha-coord-label">Longitud</div>
+        <div class="ficha-coord-val">${lngVal}</div>
+      </div>
+    </div>
+  `;
+  document.getElementById('ficha-modal-overlay').classList.add('open');
+}
+
+function closeFichaModal() {
+  document.getElementById('ficha-modal-overlay').classList.remove('open');
 }
 
 // ══════════════════════════════════════════════
@@ -2782,5 +3416,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 
 
+
+<!-- ══════ MODAL FICHA INDIVIDUAL ══════ -->
+<div id="ficha-modal-overlay" onclick="if(event.target===this)closeFichaModal()">
+  <div class="ficha-modal" id="ficha-modal-content">
+    <!-- Se rellena dinámicamente por openFichaModal() -->
+  </div>
+</div>
 </body>
 </html>
