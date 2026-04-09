@@ -781,6 +781,12 @@ body {
               <div><div>Exportar KML (Google Earth)</div><div class="btn-export-desc">Genera archivo .kml con todos los árboles geolocalizados</div></div>
             </button>
           </div>
+          <div class="export-btn-row">
+            <button class="btn-export btn-export-green" onclick="exportarFichasExcel()" style="background:#1a7b4a;">
+              <span style="font-size:20px;line-height:1;">📋</span>
+              <div><div>Generar Fichas en Excel (Formato Cornare)</div><div class="btn-export-desc">Genera hoja "Fichas" en el Spreadsheet con formato técnico de campo</div></div>
+            </button>
+          </div>
 
           <div class="export-result-box" id="export-result"></div>
         </div>
@@ -2416,6 +2422,38 @@ async function exportarKML() {
   }
 }
 
+// 6. Generar Fichas Excel en formato Cornare (vía Apps Script)
+async function exportarFichasExcel() {
+  const res = document.getElementById('export-result');
+  const url = getCfg('gs_url', '');
+  if (!url) {
+    res.innerHTML = '<span style="color:var(--rojo)">❌ Configura la URL del Apps Script en Config → Drive</span>';
+    return;
+  }
+  res.innerHTML = '<span style="color:var(--gris-texto)">⏳ Sincronizando datos y generando fichas en el Spreadsheet…</span>';
+  try {
+    const sectores   = await dbGetAll('sectores');
+    const individuos = await dbGetAll('individuos');
+    // Primero sincronizar datos
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'sync', sectores, individuos })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const json = await r.json();
+    if (json.status !== 'ok') throw new Error(json.error || 'Error');
+    // Luego generar fichas
+    const r2 = await fetch(url + '?action=exportarExcel');
+    const json2 = await r2.json();
+    if (json2.status !== 'ok') throw new Error(json2.error || 'Error generando fichas');
+    res.innerHTML = '<span style="color:var(--semaforo-verde)">✅ ' + json2.message + ' Abre el Spreadsheet para verlas.</span>';
+    showToast('📋 Fichas generadas en Google Sheets', 'ok');
+  } catch(e) {
+    res.innerHTML = '<span style="color:var(--rojo)">❌ Error: ' + e.message + '</span>';
+  }
+}
+
 // ══════════════════════════════════════════════
 //  HELPERS UI
 // ══════════════════════════════════════════════
@@ -2447,7 +2485,7 @@ function showToast(msg, type='ok') {
 // ══════════════════════════════════════════════
 function getGASCode() {
 return `// ============================================
-// Inventario Árboles Guatapé — Apps Script
+// Inventario Árboles Guatapé — Apps Script v2.0
 // 1. Ve a script.google.com → Nuevo proyecto
 // 2. Pega este código completo
 // 3. Implementar → Web App → Acceso: Cualquiera
@@ -2604,35 +2642,50 @@ const DATOS_INICIALES = {
     // Asilo (sectorId:5)
     {id:44,nombre:'Tulipán Africano',cientifico:'Spathodea campanulata',sectorId:5,cantidad:9,estado:'amarillo',accion:'programado',obs:'Especie invasora - evaluar manejo',lat:'',lng:'',fotos:[]},
     {id:45,nombre:'Chachafruto',cientifico:'Erythrina edulis',sectorId:5,cantidad:1,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    // Parque Principal (sectorId:6)
-    {id:46,nombre:'Tulipán Africano',cientifico:'Spathodea campanulata',sectorId:6,cantidad:5,estado:'amarillo',accion:'programado',obs:'Especie invasora - evaluar',lat:'',lng:'',fotos:[]},
-    {id:47,nombre:'Guayacán Rosado',cientifico:'',sectorId:6,cantidad:3,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:48,nombre:'Magnolio',cientifico:'Magnolia sp.',sectorId:6,cantidad:3,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:49,nombre:'Ceiba',cientifico:'Ceiba pentandra',sectorId:6,cantidad:2,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:50,nombre:'Acacia',cientifico:'Acacia sp.',sectorId:6,cantidad:1,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:51,nombre:'Carbonero',cientifico:'',sectorId:6,cantidad:2,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:52,nombre:'Sueldo',cientifico:'',sectorId:6,cantidad:1,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    // El Recreo (sectorId:7)
-    {id:53,nombre:'Sueldo',cientifico:'',sectorId:7,cantidad:3,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    // Parque Principal - Sector 6 - 22 individuos registrados (Fichas GP1-GP22)
+    {id:46,nombre:'Ceiba bonga',cientifico:'Ceiba pentandra',familia:'Malvaceae',sectorId:6,cantidad:1,estado:'rojo',accion:'urgente',obs:'Presencia de raíz estranguladora en el cuello del árbol. Cuello cubierto por sustrato. Ramas secas. Presencia de clavos, avisos, cables, lámparas u objetos extraños. Recomendación: Destapar cuello, cortar raíz estranguladora, poda de mantenimiento, retiro de objetos extraños.',lat:'6.2335',lng:'-75.1565',dap:100.9,ht:13.8,copa:17.5,habito:'Árbol',tratamiento:'Drench. Endoterapia',tomografia:'Si',codigo:'GP1',fotos:[],updatedAt:'2024-04-12'},
+    {id:47,nombre:'Carbonero pitieri',cientifico:'Calliandra pittieri',familia:'Fabaceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Muerte descendente. Presencia de epífitas. Podas inadecuadas. El árbol es utilizado como anclaje de la cubierta de plástico que se instala en el parque para resguardar las personas de la lluvia. Recomendación: Corrección de poda, control nutricional, limpieza de epífitas, retiro de objetos extraños.',lat:'6.2336',lng:'-75.1564',dap:79.2,ht:8.6,copa:16.2,habito:'Árbol',tratamiento:'Drench. Endoterapia',tomografia:'No',codigo:'GP2',fotos:[],updatedAt:'2024-04-12'},
+    {id:48,nombre:'Magnolia blanca',cientifico:'Magnolia grandiflora',familia:'Magnoliaceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Tallos con uniones de corteza. Abundancia de epífitas. Presencia de clavos, avisos, cables, lámparas u objetos extraños. Recomendación: Poda de mantenimiento (cortar uno de los tallos con uniones de corteza), limpieza de epífitas, retiro de objetos extraños.',lat:'6.2335',lng:'-75.1564',dap:44,ht:9,copa:12.15,habito:'Árbol',tratamiento:'Drench',tomografia:'No',codigo:'GP3',fotos:[],updatedAt:'2024-04-12'},
+    {id:49,nombre:'Ceiba bonga',cientifico:'Ceiba pentandra',familia:'Malvaceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Cuello parcialmente cubierto con sustrato. Abundancia de epífitas. Podas inadecuadas. Presencia de clavos, avisos, cables, lámparas u objetos extraños. Recomendación: Destapar cuello del árbol, limpieza de epífitas, corrección de poda, retiro de objetos extraños.',lat:'6.2334',lng:'-75.1563',dap:80.2,ht:12.5,copa:16.35,habito:'Árbol',tratamiento:'Drench',tomografia:'No',codigo:'GP4',fotos:[],updatedAt:'2024-04-12'},
+    {id:50,nombre:'Guayacán amarillo',cientifico:'Handroanthus chrysanthus',familia:'Bignoniaceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Falta de vigor vegetativo. Baja densidad de follaje. Recomendación: Control fitosanitario y nutricional.',lat:'6.2334',lng:'-75.1563',dap:27.1,ht:6.8,copa:7.9,habito:'Árbol',tratamiento:'Drench',tomografia:'No',codigo:'GP5',fotos:[],updatedAt:'2024-04-12'},
+    {id:51,nombre:'Carbonero zorro',cientifico:'Cojoba arborea',familia:'Fabaceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Podas inadecuadas. Cuello tapado por sustrato. Presencia de epífitas. Presencia de clavos, avisos, cables, lámparas u objetos extraños. Recomendación: Corrección de poda, destapar cuello del árbol, limpieza de epífitas, retiro de objetos extraños.',lat:'6.2334',lng:'-75.1562',dap:76.3,ht:5.8,copa:15.8,habito:'Árbol',tratamiento:'Drench',tomografia:'No',codigo:'GP6',fotos:[],updatedAt:'2024-04-12'},
+    {id:52,nombre:'Guayacán amarillo',cientifico:'Handroanthus chrysanthus',familia:'Bignoniaceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Alteraciones en el follaje (mosaico, amarillamiento, etc). Recomendación: Control nutricional, poda de formación.',lat:'6.2333',lng:'-75.1562',dap:17.3,ht:4.8,copa:4.8,habito:'Árbol',tratamiento:'Drench',tomografia:'No',codigo:'GP7',fotos:[],updatedAt:'2024-04-12'},
+    {id:53,nombre:'Magnolia blanca',cientifico:'Magnolia grandiflora',familia:'Magnoliaceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Exudación en el tallo. Presencia de raíz estranguladora. Copa densa. Recomendación: Cortar raíz estranguladora, poda de aclareo, limpieza de exudación en el tallo.',lat:'6.2333',lng:'-75.1561',dap:28.1,ht:5.6,copa:6,habito:'Árbol',tratamiento:'Drench',tomografia:'No',codigo:'GP8',fotos:[],updatedAt:'2024-04-12'},
+    {id:54,nombre:'Ficus',cientifico:'Ficus sp',familia:'Moraceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Ramas secas. Presencia de clavos, avisos, cables, lámparas u objetos extraños. Presencia de epífitas. Recomendación: Poda de mantenimiento, retiro de objetos extraños, limpieza de epífitas.',lat:'6.2332',lng:'-75.1561',dap:56.3,ht:9.8,copa:17.9,habito:'Árbol',tratamiento:'Drench',tomografia:'No',codigo:'GP9',fotos:[],updatedAt:'2024-04-12'},
+    {id:55,nombre:'Carbonero zorro',cientifico:'Cojoba arborea',familia:'Fabaceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Jardines en la base del árbol. Presencia de epífitas. Podas inadecuadas tipo topping. Recomendación: Retiro de jardines de la base del árbol, limpieza de epífitas, corrección de poda.',lat:'6.2332',lng:'-75.1560',dap:90.2,ht:8.9,copa:15.05,habito:'Árbol',tratamiento:'Drench',tomografia:'No',codigo:'GP10',fotos:[],updatedAt:'2024-04-12'},
+    {id:56,nombre:'Magnolia blanca',cientifico:'Magnolia grandiflora',familia:'Magnoliaceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Árbol descompensado. Algunas ramas presentan desprendimientos de corteza. Presencia de epífitas. Presencia de clavos, avisos, cables, lámparas u objetos extraños. Recomendación: Poda de compensación, limpieza de epífitas, retiro de objetos extraños.',lat:'6.2332',lng:'-75.1561',dap:40.1,ht:10,copa:13.1,habito:'Árbol',tratamiento:'Drench',tomografia:'No',codigo:'GP11',fotos:[],updatedAt:'2024-04-12'},
+    {id:57,nombre:'Guayacán rosado',cientifico:'Tabebuia rosea',familia:'Bignoniaceae',sectorId:6,cantidad:1,estado:'rojo',accion:'urgente',obs:'Ramas muertas. Árbol con poco vigor vegetativo con unión de tallos en "v" con desprendimiento de corteza. Daño mecánico en la base. TALA RECOMENDADA.',lat:'6.2332',lng:'-75.1561',dap:23.9,ht:5,copa:6.75,habito:'Árbol',tratamiento:'Ninguno',tomografia:'No',codigo:'GP12',fotos:[],updatedAt:'2024-04-12'},
+    {id:58,nombre:'Tulipán africano',cientifico:'Spathodea campanulata',familia:'Bignoniaceae',sectorId:6,cantidad:1,estado:'rojo',accion:'urgente',obs:'Desprendimiento de corteza en ramas. Podas inadecuadas. Daño mecánico en base por guadaña. TALA RECOMENDADA.',lat:'6.2333',lng:'-75.1562',dap:49.7,ht:7.8,copa:8.1,habito:'Árbol',tratamiento:'Ninguno',tomografia:'No',codigo:'GP13',fotos:[],updatedAt:'2024-04-12'},
+    {id:59,nombre:'Ceiba bonga',cientifico:'Ceiba pentandra',familia:'Malvaceae',sectorId:6,cantidad:1,estado:'rojo',accion:'urgente',obs:'Cuello cubierto por sustrato. Presencia de raíz estranguladora. Ramas secas. Recomendación: Destapar cuello del árbol, limpieza de epífitas, poda de mantenimiento.',lat:'6.2334',lng:'-75.1562',dap:87.2,ht:13.5,copa:15.55,habito:'Árbol',tratamiento:'Drench. Endoterapia',tomografia:'Si',codigo:'GP14',fotos:[],updatedAt:'2024-04-12'},
+    {id:60,nombre:'Carbonero pitieri',cientifico:'Calliandra pittieri',familia:'Fabaceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Cuello cubierto por sustrato. Abundancia de epífitas. Ramas secas. Recomendación: Destapar cuello del árbol, limpieza de epífitas, poda de mantenimiento.',lat:'6.2334',lng:'-75.1563',dap:29.6,ht:5.8,copa:9.7,habito:'Árbol',tratamiento:'Ninguno',tomografia:'No',codigo:'GP15',fotos:[],updatedAt:'2024-04-12'},
+    {id:61,nombre:'Palma washingtonia',cientifico:'Washingtonia robusta',familia:'Arecaceae',sectorId:6,cantidad:1,estado:'verde',accion:'normal',obs:'Hojas secas de palma. Recomendación: Limpieza de hojas secas.',lat:'6.2334',lng:'-75.1563',dap:50.9,ht:16,copa:9.45,habito:'Palma',tratamiento:'Ninguno',tomografia:'No',codigo:'GP16',fotos:[],updatedAt:'2024-04-12'},
+    {id:62,nombre:'Magnolia blanca',cientifico:'Magnolia grandiflora',familia:'Magnoliaceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Ramas secas. Abundancia de epífitas. Recomendación: Poda de mantenimiento, limpieza de epífitas.',lat:'6.2334',lng:'-75.1563',dap:40.6,ht:10.8,copa:11.35,habito:'Árbol',tratamiento:'Ninguno',tomografia:'No',codigo:'GP17',fotos:[],updatedAt:'2024-04-12'},
+    {id:63,nombre:'Guayacán rosado',cientifico:'Tabebuia rosea',familia:'Bignoniaceae',sectorId:6,cantidad:1,estado:'amarillo',accion:'programado',obs:'Ramas secas. Abundancia de epífitas. Recomendación: Poda de mantenimiento, limpieza de epífitas.',lat:'6.2335',lng:'-75.1563',dap:32.8,ht:9.5,copa:9.9,habito:'Árbol',tratamiento:'Ninguno',tomografia:'No',codigo:'GP18',fotos:[],updatedAt:'2024-04-12'},
+    {id:64,nombre:'Tulipán africano',cientifico:'Spathodea campanulata',familia:'Bignoniaceae',sectorId:6,cantidad:1,estado:'rojo',accion:'urgente',obs:'Muerte descendente. Podas inadecuadas. Abundancia de epífitas. TALA RECOMENDADA.',lat:'6.2335',lng:'-75.1563',dap:51.9,ht:6.5,copa:8.45,habito:'Árbol',tratamiento:'Ninguno',tomografia:'No',codigo:'GP19',fotos:[],updatedAt:'2024-04-12'},
+    {id:65,nombre:'Tulipán africano',cientifico:'Spathodea campanulata',familia:'Bignoniaceae',sectorId:6,cantidad:1,estado:'rojo',accion:'urgente',obs:'Muerte descendente al 80%. Follaje solo en la cara norte. Anillamiento en la base por guadaña. TALA RECOMENDADA.',lat:'6.2335',lng:'-75.1562',dap:50.3,ht:7.3,copa:7.75,habito:'Árbol',tratamiento:'Ninguno',tomografia:'No',codigo:'GP20',fotos:[],updatedAt:'2024-04-12'},
+    {id:66,nombre:'Tulipán africano',cientifico:'Spathodea campanulata',familia:'Bignoniaceae',sectorId:6,cantidad:1,estado:'rojo',accion:'urgente',obs:'Presencia de raíces estranguladoras. Ramas secas. Podas inadecuadas. Se sugiere reemplazar esta especie por una nativa. REEMPLAZO RECOMENDADO.',lat:'6.2335',lng:'-75.1563',dap:38.5,ht:7.5,copa:8.6,habito:'Árbol',tratamiento:'Ninguno',tomografia:'No',codigo:'GP21',fotos:[],updatedAt:'2024-04-12'},
+    {id:67,nombre:'Tulipán africano',cientifico:'Spathodea campanulata',familia:'Bignoniaceae',sectorId:6,cantidad:1,estado:'rojo',accion:'urgente',obs:'Pérdida de dominancia apical por mala práctica de poda tipo topping. Copa descompensada. Cuello tapado por 80 cm de sustrato por construcción de nueva jardinera. TALA RECOMENDADA.',lat:'6.2335',lng:'-75.1564',dap:61.1,ht:8,copa:12.15,habito:'Árbol',tratamiento:'Ninguno',tomografia:'Si',codigo:'GP22',fotos:[],updatedAt:'2024-04-12'},
+        // El Recreo (sectorId:7)
+    {id:68,nombre:'Sueldo',cientifico:'',sectorId:7,cantidad:3,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
     // La Cancha (sectorId:8)
-    {id:54,nombre:'Palma Reina',cientifico:'Roystonea regia',sectorId:8,cantidad:3,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:55,nombre:'Palma Payanesa',cientifico:'',sectorId:8,cantidad:44,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:56,nombre:'Chirlo Virlo',cientifico:'',sectorId:8,cantidad:2,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:57,nombre:'Urapán',cientifico:'Fraxinus chinensis',sectorId:8,cantidad:1,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:58,nombre:'Chagualo',cientifico:'Clusia elliptica',sectorId:8,cantidad:2,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:59,nombre:'Guayabo Nativo',cientifico:'',sectorId:8,cantidad:6,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:60,nombre:'Pino Romerón',cientifico:'',sectorId:8,cantidad:3,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:61,nombre:'Cinco Dedos',cientifico:'',sectorId:8,cantidad:1,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:62,nombre:'Eugenio',cientifico:'Eugenia sp.',sectorId:8,cantidad:7,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:63,nombre:'Guayabo Jaboticaba',cientifico:'Plinia cauliflora',sectorId:8,cantidad:5,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:64,nombre:'Guayacán',cientifico:'',sectorId:8,cantidad:6,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:69,nombre:'Palma Reina',cientifico:'Roystonea regia',sectorId:8,cantidad:3,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:70,nombre:'Palma Payanesa',cientifico:'',sectorId:8,cantidad:44,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:71,nombre:'Chirlo Virlo',cientifico:'',sectorId:8,cantidad:2,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:72,nombre:'Urapán',cientifico:'Fraxinus chinensis',sectorId:8,cantidad:1,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:73,nombre:'Chagualo',cientifico:'Clusia elliptica',sectorId:8,cantidad:2,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:74,nombre:'Guayabo Nativo',cientifico:'',sectorId:8,cantidad:6,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:75,nombre:'Pino Romerón',cientifico:'',sectorId:8,cantidad:3,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:76,nombre:'Cinco Dedos',cientifico:'',sectorId:8,cantidad:1,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:77,nombre:'Eugenio',cientifico:'Eugenia sp.',sectorId:8,cantidad:7,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:78,nombre:'Guayabo Jaboticaba',cientifico:'Plinia cauliflora',sectorId:8,cantidad:5,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:79,nombre:'Guayacán',cientifico:'',sectorId:8,cantidad:6,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
     // Araucarias (sectorId:9)
-    {id:65,nombre:'Pino Romerón',cientifico:'',sectorId:9,cantidad:6,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:66,nombre:'Carbonero',cientifico:'',sectorId:9,cantidad:3,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:67,nombre:'Flor de Mayo',cientifico:'Brownea ariza',sectorId:9,cantidad:2,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:68,nombre:'Tulipán Africano',cientifico:'Spathodea campanulata',sectorId:9,cantidad:2,estado:'amarillo',accion:'programado',obs:'Especie invasora',lat:'',lng:'',fotos:[]},
-    {id:69,nombre:'Níspero',cientifico:'Eriobotrya japonica',sectorId:9,cantidad:1,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
-    {id:70,nombre:'Guayacán',cientifico:'',sectorId:9,cantidad:2,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:80,nombre:'Pino Romerón',cientifico:'',sectorId:9,cantidad:6,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:81,nombre:'Carbonero',cientifico:'',sectorId:9,cantidad:3,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:82,nombre:'Flor de Mayo',cientifico:'Brownea ariza',sectorId:9,cantidad:2,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:83,nombre:'Tulipán Africano',cientifico:'Spathodea campanulata',sectorId:9,cantidad:2,estado:'amarillo',accion:'programado',obs:'Especie invasora',lat:'',lng:'',fotos:[]},
+    {id:84,nombre:'Níspero',cientifico:'Eriobotrya japonica',sectorId:9,cantidad:1,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
+    {id:85,nombre:'Guayacán',cientifico:'',sectorId:9,cantidad:2,estado:'verde',accion:'sin-novedad',obs:'',lat:'',lng:'',fotos:[]},
   ]
 };
 
