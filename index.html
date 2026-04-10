@@ -2293,36 +2293,31 @@ async function cargarDesdeSheets() {
     if (secs.length === 0 && inds.length === 0) return;
     // Normalize sector keys: GAS returns 'ID','Nombre Sector','Área (m²)','Ubicación','Descripción','Actualizado'
     const secsFixed = secs.map(s => {
-      // Normalizar id: puede venir como número, string numérico, o bajo clave 'ID' (mayúsculas del GAS)
       const rawId = (s.id !== undefined && s.id !== '') ? s.id : (s['ID'] !== undefined ? s['ID'] : undefined);
       const numId = typeof rawId === 'number' ? rawId : parseInt(rawId);
       return {
-        id:        (!isNaN(numId) && numId > 0) ? numId : undefined,
+        id:        (numId > 0) ? numId : undefined,
         nombre:    s.nombre || s['Nombre Sector'] || '',
         area:      s.area   || s['Área (m²)']    || s['Area (m2)'] || '',
         ubicacion: s.ubicacion || s['Ubicación'] || s['Ubicacion'] || '',
         desc:      s.desc   || s['Descripción'] || s['Descripcion'] || '',
         updatedAt: s.updatedAt || s['Actualizado'] || ''
       };
-    }).filter(s => s.nombre && s.nombre.toString().trim() !== '' && s.nombre !== 'undefined');
-    // Solo guardar en IDB sectores con id numérico válido para evitar error IDB "does not meet requirements"
-    const secsConId = secsFixed.filter(s => typeof s.id === 'number' && s.id > 0);
-    if (secsConId.length === 0 && secsFixed.length > 0) {
-      console.warn('[LOAD] ⚠️ Sectores recibidos sin id numérico válido — no se pueden guardar en IDB:', secsFixed);
-    }
-    for (const s of secsConId) await dbPut('sectores', s);
+    }).filter(s => s.nombre && s.nombre.toString().trim() !== '' && s.nombre !== 'undefined' && s.id > 0);
+    for (const s of secsFixed) await dbPut('sectores', s);
     const indsFixed = inds.map(i => {
       const rawId  = typeof i.id === 'number' ? i.id : parseInt(i.id);
       const rawSec = typeof i.sectorId === 'number' ? i.sectorId : parseInt(i.sectorId);
+      const nom    = (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null;
       return {
         ...i,
         id:       (rawId > 0)  ? rawId  : undefined,
         sectorId: (rawSec > 0) ? rawSec : 1,
         cantidad: parseInt(i.cantidad) > 0 ? parseInt(i.cantidad) : 1,
         fotos:    Array.isArray(i.fotos) ? i.fotos : [],
-        nombre:   (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null
+        nombre:   nom
       };
-    }).filter(i => i.id > 0 && i.nombre);  // descartar individuos con id o nombre inválido
+    }).filter(i => i.id > 0 && i.nombre);
     for (const i of indsFixed) await dbPut('individuos', i);
     console.log('[LOAD] ✅', indsFixed.length, 'individuos y', secsFixed.length, 'sectores cargados');
     showToast('📥 ' + indsFixed.length + ' registros cargados desde Sheets', 'ok');
@@ -2343,7 +2338,6 @@ async function cargarDesdeSheets() {
 // ══════════════════════════════════════════════
 async function sincronizarConSheets() {
   console.log("[SYNC] Iniciando proceso...");
-  // Lee datos SIEMPRE desde IndexedDB (fuente de verdad de la app)
   const sectores   = await dbGetAll('sectores');
   const individuos = await dbGetAll('individuos');
 
@@ -2352,20 +2346,19 @@ async function sincronizarConSheets() {
     return;
   }
 
-  // Sanitizar sectores: filtrar inválidos antes de enviar al GAS
   const sectoresSan = sectores.filter(s => {
     const nom = String(s.nombre || '').trim();
     return nom !== '' && nom !== 'undefined' && nom !== 'null';
   });
 
-  console.log("[SYNC] Sectores válidos a enviar:", sectoresSan.length, "de", sectores.length, "totales");
   if (sectoresSan.length === 0) {
-    console.warn("[SYNC] ⚠️ Todos los sectores en IDB tienen nombre inválido. Abortando sync para no borrar Sheets.");
+    console.warn("[SYNC] ⚠️ Sin sectores válidos — abortando para no borrar Sheets");
     hideSyncStatus();
     return;
   }
 
-  // Sanitizar fotos: no enviar base64 al GAS (demasiado pesado)
+  console.log("[SYNC] Sectores válidos:", sectoresSan.length, "de", sectores.length);
+
   const indsSan = individuos.map(i => ({
     ...i,
     fotos: Array.isArray(i.fotos) ? i.fotos.length + ' foto(s)' : '0 foto(s)'
@@ -2380,7 +2373,7 @@ async function sincronizarConSheets() {
 
   const payload = JSON.stringify({ action: 'sync', sectores: sectoresSan, individuos: indsSan });
 
-  // Estrategia 1: fetch con timeout extendido (45s para datasets grandes)
+  // Intento 1: fetch con timeout extendido
   try {
     const r = await fetch(url, {
       method: 'POST',
@@ -2388,35 +2381,31 @@ async function sincronizarConSheets() {
       body: payload,
       signal: AbortSignal.timeout(45000)
     });
-    const txt  = await r.text();
-    const json = JSON.parse(txt);
+    const json = JSON.parse(await r.text());
     if (json.status === 'ok') {
       console.log("[SYNC] ✅ Sincronizado:", json.synced, "registros,", sectoresSan.length, "sectores");
       hideSyncStatus();
       return;
     }
-    console.warn("[SYNC] GAS devolvió error:", json.error);
-  } catch(fetchErr) {
-    console.warn("[SYNC] fetch falló:", fetchErr.message, "— reintentando sin timeout...");
+  } catch(e1) {
+    console.warn("[SYNC] Intento 1 falló:", e1.message);
   }
 
-  // Estrategia 2: segundo intento fetch sin timeout (para redes lentas)
+  // Intento 2: sin timeout (redes lentas)
   try {
     const r2 = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: payload
     });
-    const txt2  = await r2.text();
-    const json2 = JSON.parse(txt2);
+    const json2 = JSON.parse(await r2.text());
     if (json2.status === 'ok') {
-      console.log("[SYNC] ✅ Sincronizado (intento 2):", json2.synced, "registros,", sectoresSan.length, "sectores");
+      console.log("[SYNC] ✅ Sincronizado (intento 2):", json2.synced, "registros");
       hideSyncStatus();
       return;
     }
-    console.warn("[SYNC] Intento 2 — GAS devolvió error:", json2.error);
-  } catch(fetchErr2) {
-    console.error("[SYNC] Ambos intentos fallaron:", fetchErr2.message);
+  } catch(e2) {
+    console.error("[SYNC] Ambos intentos fallaron:", e2.message);
   }
 
   hideSyncStatus();
@@ -2670,17 +2659,14 @@ async function cargarDatosActualizados() {
       const rawId = (s.id !== undefined && s.id !== '') ? s.id : (s['ID'] !== undefined ? s['ID'] : undefined);
       const numId = typeof rawId === 'number' ? rawId : parseInt(rawId);
       const sNorm = {
-        id:        (!isNaN(numId) && numId > 0) ? numId : undefined,
+        id:        (numId > 0) ? numId : undefined,
         nombre:    s.nombre || s['Nombre Sector'] || '',
         area:      s.area   || s['Área (m²)'] || s['Area (m2)'] || '',
         ubicacion: s.ubicacion || s['Ubicación'] || s['Ubicacion'] || '',
         desc:      s.desc   || s['Descripción'] || s['Descripcion'] || '',
         updatedAt: s.updatedAt || s['Actualizado'] || ''
       };
-      // Guardar solo si id válido y nombre real — evita error IDB "does not meet requirements"
-      if (sNorm.nombre && sNorm.nombre !== 'undefined' && typeof sNorm.id === 'number' && sNorm.id > 0) {
-        await dbPut('sectores', sNorm);
-      }
+      if (sNorm.nombre && sNorm.nombre !== 'undefined' && sNorm.id > 0) await dbPut('sectores', sNorm);
     }
     for (const i of inds) {
       const _iid  = typeof i.id === 'number' ? i.id : parseInt(i.id);
@@ -2693,7 +2679,6 @@ async function cargarDatosActualizados() {
         fotos:    Array.isArray(i.fotos) ? i.fotos : [],
         nombre:   _inom
       };
-      // Solo guardar si id válido y nombre real
       if (iNorm.id > 0 && iNorm.nombre) await dbPut('individuos', iNorm);
     }
     res.innerHTML = '<span style="color:var(--semaforo-verde)">✅ Cargados: ' + inds.length + ' individuos, ' + secs.length + ' sectores</span>';
@@ -3530,13 +3515,7 @@ async function seedIfEmpty() {
         const res  = await fetch(url + '?action=load', { signal: AbortSignal.timeout(8000) });
         const json = await res.json();
         if (json.status === 'ok' && (json.sectores||[]).length > 0) {
-          for (const s of json.sectores) {
-            const rawId = (s.id !== undefined && s.id !== '') ? s.id : (s['ID'] !== undefined ? s['ID'] : undefined);
-            const numId = typeof rawId === 'number' ? rawId : parseInt(rawId);
-            if (!isNaN(numId) && numId > 0 && s.nombre && s.nombre !== 'undefined') {
-              await dbPut('sectores', { ...s, id: numId });
-            }
-          }
+          for (const s of json.sectores)       await dbPut('sectores', s);
           for (const i of (json.individuos||[])) {
             const _sid = typeof i.id === 'number' ? i.id : parseInt(i.id);
             const _nom = (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null;
@@ -3728,12 +3707,8 @@ async function limpiarSectoresUndefined() {
         || String(nombre).trim() === ''
         || String(nombre).trim().toLowerCase() === 'undefined'
         || String(nombre).trim().toLowerCase() === 'null';
-      if (esInvalido) {
-        await dbDelete('sectores', s.id);
-        elimSec++;
-      }
+      if (esInvalido) { await dbDelete('sectores', s.id); elimSec++; }
     }
-
     // Limpiar individuos con nombre undefined/vacío o id inválido
     const individuos = await dbGetAll('individuos');
     let elimInd = 0;
@@ -3743,12 +3718,11 @@ async function limpiarSectoresUndefined() {
         || String(nom).trim() === ''
         || String(nom).trim().toLowerCase() === 'undefined'
         || String(nom).trim().toLowerCase() === 'null';
-      const idInvalido = !ind.id || isNaN(ind.id) || ind.id <= 0;
+      const idInvalido = !ind.id || isNaN(Number(ind.id)) || Number(ind.id) <= 0;
       if (nomInvalido || idInvalido) {
-        try { await dbDelete('individuos', ind.id); elimInd++; } catch(e2) { /* id inválido, no se puede borrar por key */ }
+        try { await dbDelete('individuos', ind.id); elimInd++; } catch(e2) { /* id inválido no borrable por key */ }
       }
     }
-
     const total = elimSec + elimInd;
     if (total > 0) {
       console.log(`[LIMPIEZA] ✅ ${elimSec} sector(es) y ${elimInd} individuo(s) inválidos eliminados`);
