@@ -2343,6 +2343,13 @@ async function sincronizarConSheets() {
     return nom !== '' && nom !== 'undefined' && nom !== 'null';
   });
 
+  console.log("[SYNC] Sectores válidos a enviar:", sectoresSan.length, "de", sectores.length, "totales");
+  if (sectoresSan.length === 0) {
+    console.warn("[SYNC] ⚠️ Todos los sectores en IDB tienen nombre inválido. Abortando sync para no borrar Sheets.");
+    hideSyncStatus();
+    return;
+  }
+
   // Sanitizar fotos: no enviar base64 al GAS (demasiado pesado)
   const indsSan = individuos.map(i => ({
     ...i,
@@ -2356,51 +2363,47 @@ async function sincronizarConSheets() {
 
   showSyncStatus('Sincronizando con Sheets…');
 
-  // Estrategia 1: fetch directo (funciona en la mayoría de casos)
+  const payload = JSON.stringify({ action: 'sync', sectores: sectoresSan, individuos: indsSan });
+
+  // Estrategia 1: fetch con timeout extendido (45s para datasets grandes)
   try {
     const r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'sync', sectores: sectoresSan, individuos: indsSan }),
-      signal: AbortSignal.timeout(15000)
+      body: payload,
+      signal: AbortSignal.timeout(45000)
     });
     const txt  = await r.text();
     const json = JSON.parse(txt);
     if (json.status === 'ok') {
-      console.log("[SYNC] ✅ Sincronizado:", json.synced, "registros");
+      console.log("[SYNC] ✅ Sincronizado:", json.synced, "registros,", sectoresSan.length, "sectores");
       hideSyncStatus();
       return;
     }
+    console.warn("[SYNC] GAS devolvió error:", json.error);
   } catch(fetchErr) {
-    console.warn("[SYNC] fetch falló, usando iframe fallback:", fetchErr.message);
+    console.warn("[SYNC] fetch falló:", fetchErr.message, "— reintentando sin timeout...");
   }
 
-  // Estrategia 2: iframe form (fallback para CORS estricto)
-  let iframe = document.getElementById('hidden_iframe_sync');
-  if (!iframe) {
-    iframe = document.createElement('iframe');
-    iframe.id   = 'hidden_iframe_sync';
-    iframe.name = 'hidden_iframe_sync';
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-  }
-  const form  = document.createElement('form');
-  form.method = 'POST';
-  form.action = url;
-  form.target = 'hidden_iframe_sync';
-  const inp   = document.createElement('input');
-  inp.type    = 'hidden';
-  inp.name    = 'payload';
-  inp.value   = JSON.stringify({ action: 'sync', sectores: sectoresSan, individuos: indsSan });
-  form.appendChild(inp);
-  document.body.appendChild(form);
+  // Estrategia 2: segundo intento fetch sin timeout (para redes lentas)
   try {
-    form.submit();
-    console.log("[SYNC] iframe submit enviado");
-  } catch(e) {
-    console.error("[SYNC] Error iframe:", e);
+    const r2 = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: payload
+    });
+    const txt2  = await r2.text();
+    const json2 = JSON.parse(txt2);
+    if (json2.status === 'ok') {
+      console.log("[SYNC] ✅ Sincronizado (intento 2):", json2.synced, "registros,", sectoresSan.length, "sectores");
+      hideSyncStatus();
+      return;
+    }
+    console.warn("[SYNC] Intento 2 — GAS devolvió error:", json2.error);
+  } catch(fetchErr2) {
+    console.error("[SYNC] Ambos intentos fallaron:", fetchErr2.message);
   }
-  setTimeout(() => { if (document.body.contains(form)) document.body.removeChild(form); }, 3000);
+
   hideSyncStatus();
 }
 
@@ -2597,6 +2600,12 @@ async function guardarEnSheets() {
       const nom = String(s.nombre || '').trim();
       return nom !== '' && nom !== 'undefined' && nom !== 'null';
     });
+    console.log('[GUARDAR] Sectores válidos:', secSan.length, 'de', sectores.length, 'totales');
+    if (secSan.length === 0) {
+      res.innerHTML = '<span style="color:var(--rojo)">❌ No hay sectores válidos. Crea al menos un sector antes de guardar.</span>';
+      return;
+    }
+
     const indsSan = individuos.map(i => ({
       ...i, fotos: (i.fotos||[]).length + ' foto(s)'
     }));
@@ -2614,7 +2623,7 @@ async function guardarEnSheets() {
     try { json = JSON.parse(text); } catch(e) { throw new Error('GAS no devolvió JSON válido'); }
     if (json.status !== 'ok') throw new Error(json.error || 'Error desconocido');
 
-    res.innerHTML = '<span style="color:var(--semaforo-verde)">✅ ' + individuos.length + ' registros guardados en Google Sheets</span>';
+    res.innerHTML = '<span style="color:var(--semaforo-verde)">✅ ' + individuos.length + ' registros y ' + secSan.length + ' sectores guardados en Google Sheets</span>';
     showToast('☁️ Datos guardados en Sheets', 'ok');
   } catch(e) {
     res.innerHTML = '<span style="color:var(--rojo)">❌ Error: ' + e.message + '</span>';
