@@ -2311,13 +2311,18 @@ async function cargarDesdeSheets() {
       console.warn('[LOAD] ⚠️ Sectores recibidos sin id numérico válido — no se pueden guardar en IDB:', secsFixed);
     }
     for (const s of secsConId) await dbPut('sectores', s);
-    const indsFixed = inds.map(i => ({
-      ...i,
-      id:      typeof i.id === 'number' ? i.id : parseInt(i.id)||undefined,
-      sectorId:typeof i.sectorId === 'number' ? i.sectorId : parseInt(i.sectorId)||1,
-      cantidad: parseInt(i.cantidad)||1,
-      fotos:   Array.isArray(i.fotos) ? i.fotos : []
-    }));
+    const indsFixed = inds.map(i => {
+      const rawId  = typeof i.id === 'number' ? i.id : parseInt(i.id);
+      const rawSec = typeof i.sectorId === 'number' ? i.sectorId : parseInt(i.sectorId);
+      return {
+        ...i,
+        id:       (rawId > 0)  ? rawId  : undefined,
+        sectorId: (rawSec > 0) ? rawSec : 1,
+        cantidad: parseInt(i.cantidad) > 0 ? parseInt(i.cantidad) : 1,
+        fotos:    Array.isArray(i.fotos) ? i.fotos : [],
+        nombre:   (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null
+      };
+    }).filter(i => i.id > 0 && i.nombre);  // descartar individuos con id o nombre inválido
     for (const i of indsFixed) await dbPut('individuos', i);
     console.log('[LOAD] ✅', indsFixed.length, 'individuos y', secsFixed.length, 'sectores cargados');
     showToast('📥 ' + indsFixed.length + ' registros cargados desde Sheets', 'ok');
@@ -2678,8 +2683,18 @@ async function cargarDatosActualizados() {
       }
     }
     for (const i of inds) {
-      const iNorm = { ...i, id: typeof i.id==='number'?i.id:parseInt(i.id)||undefined, sectorId: typeof i.sectorId==='number'?i.sectorId:parseInt(i.sectorId)||1, cantidad: parseInt(i.cantidad)||1, fotos: Array.isArray(i.fotos)?i.fotos:[] };
-      await dbPut('individuos', iNorm);
+      const _iid  = typeof i.id === 'number' ? i.id : parseInt(i.id);
+      const _isec = typeof i.sectorId === 'number' ? i.sectorId : parseInt(i.sectorId);
+      const _inom = (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null;
+      const iNorm = { ...i,
+        id:       (_iid > 0)  ? _iid  : undefined,
+        sectorId: (_isec > 0) ? _isec : 1,
+        cantidad: parseInt(i.cantidad) > 0 ? parseInt(i.cantidad) : 1,
+        fotos:    Array.isArray(i.fotos) ? i.fotos : [],
+        nombre:   _inom
+      };
+      // Solo guardar si id válido y nombre real
+      if (iNorm.id > 0 && iNorm.nombre) await dbPut('individuos', iNorm);
     }
     res.innerHTML = '<span style="color:var(--semaforo-verde)">✅ Cargados: ' + inds.length + ' individuos, ' + secs.length + ' sectores</span>';
     showToast('📥 Datos actualizados desde Sheets', 'ok');
@@ -3522,7 +3537,11 @@ async function seedIfEmpty() {
               await dbPut('sectores', { ...s, id: numId });
             }
           }
-          for (const i of (json.individuos||[])) await dbPut('individuos', i);
+          for (const i of (json.individuos||[])) {
+            const _sid = typeof i.id === 'number' ? i.id : parseInt(i.id);
+            const _nom = (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null;
+            if (_sid > 0 && _nom) await dbPut('individuos', { ...i, id: _sid, nombre: _nom });
+          }
           showLoginInfo('✅ ' + (json.individuos||[]).length + ' individuos cargados desde Sheets');
           setTimeout(() => { const el = document.getElementById('login-info'); if(el) el.style.display='none'; }, 3000);
           return;
@@ -3700,8 +3719,9 @@ function closeFichaModal() {
 // ══════════════════════════════════════════════
 async function limpiarSectoresUndefined() {
   try {
+    // Limpiar sectores inválidos
     const sectores = await dbGetAll('sectores');
-    let eliminados = 0;
+    let elimSec = 0;
     for (const s of sectores) {
       const nombre = s.nombre;
       const esInvalido = !nombre
@@ -3710,15 +3730,32 @@ async function limpiarSectoresUndefined() {
         || String(nombre).trim().toLowerCase() === 'null';
       if (esInvalido) {
         await dbDelete('sectores', s.id);
-        eliminados++;
+        elimSec++;
       }
     }
-    if (eliminados > 0) {
-      console.log(`[LIMPIEZA] ✅ ${eliminados} sector(es) undefined eliminados`);
-      showToast(`🧹 ${eliminados} sector(es) inválido(s) eliminados`, 'ok');
+
+    // Limpiar individuos con nombre undefined/vacío o id inválido
+    const individuos = await dbGetAll('individuos');
+    let elimInd = 0;
+    for (const ind of individuos) {
+      const nom = ind.nombre;
+      const nomInvalido = !nom
+        || String(nom).trim() === ''
+        || String(nom).trim().toLowerCase() === 'undefined'
+        || String(nom).trim().toLowerCase() === 'null';
+      const idInvalido = !ind.id || isNaN(ind.id) || ind.id <= 0;
+      if (nomInvalido || idInvalido) {
+        try { await dbDelete('individuos', ind.id); elimInd++; } catch(e2) { /* id inválido, no se puede borrar por key */ }
+      }
+    }
+
+    const total = elimSec + elimInd;
+    if (total > 0) {
+      console.log(`[LIMPIEZA] ✅ ${elimSec} sector(es) y ${elimInd} individuo(s) inválidos eliminados`);
+      showToast(`🧹 ${elimSec} sector(es) y ${elimInd} árbol(es) con datos inválidos eliminados`, 'ok');
     }
   } catch(e) {
-    console.warn('[LIMPIEZA] Error limpiando sectores:', e);
+    console.warn('[LIMPIEZA] Error limpiando datos:', e);
   }
 }
 
