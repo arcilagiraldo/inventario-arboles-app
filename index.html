@@ -2292,15 +2292,25 @@ async function cargarDesdeSheets() {
     const inds = json.individuos || [];
     if (secs.length === 0 && inds.length === 0) return;
     // Normalize sector keys: GAS returns 'ID','Nombre Sector','Área (m²)','Ubicación','Descripción','Actualizado'
-    const secsFixed = secs.map(s => ({
-      id:        typeof s.id === 'number' ? s.id : (s.ID !== undefined ? (typeof s.ID === 'number' ? s.ID : parseInt(s.ID)||undefined) : (parseInt(s.id)||undefined)),
-      nombre:    s.nombre || s['Nombre Sector'] || '',
-      area:      s.area   || s['Área (m²)']    || s['Area (m2)'] || '',
-      ubicacion: s.ubicacion || s['Ubicación'] || s['Ubicacion'] || '',
-      desc:      s.desc   || s['Descripción'] || s['Descripcion'] || '',
-      updatedAt: s.updatedAt || s['Actualizado'] || ''
-    })).filter(s => s.nombre && s.nombre.toString().trim() !== '' && s.nombre !== 'undefined');
-    for (const s of secsFixed) await dbPut('sectores', s);
+    const secsFixed = secs.map(s => {
+      // Normalizar id: puede venir como número, string numérico, o bajo clave 'ID' (mayúsculas del GAS)
+      const rawId = (s.id !== undefined && s.id !== '') ? s.id : (s['ID'] !== undefined ? s['ID'] : undefined);
+      const numId = typeof rawId === 'number' ? rawId : parseInt(rawId);
+      return {
+        id:        (!isNaN(numId) && numId > 0) ? numId : undefined,
+        nombre:    s.nombre || s['Nombre Sector'] || '',
+        area:      s.area   || s['Área (m²)']    || s['Area (m2)'] || '',
+        ubicacion: s.ubicacion || s['Ubicación'] || s['Ubicacion'] || '',
+        desc:      s.desc   || s['Descripción'] || s['Descripcion'] || '',
+        updatedAt: s.updatedAt || s['Actualizado'] || ''
+      };
+    }).filter(s => s.nombre && s.nombre.toString().trim() !== '' && s.nombre !== 'undefined');
+    // Solo guardar en IDB sectores con id numérico válido para evitar error IDB "does not meet requirements"
+    const secsConId = secsFixed.filter(s => typeof s.id === 'number' && s.id > 0);
+    if (secsConId.length === 0 && secsFixed.length > 0) {
+      console.warn('[LOAD] ⚠️ Sectores recibidos sin id numérico válido — no se pueden guardar en IDB:', secsFixed);
+    }
+    for (const s of secsConId) await dbPut('sectores', s);
     const indsFixed = inds.map(i => ({
       ...i,
       id:      typeof i.id === 'number' ? i.id : parseInt(i.id)||undefined,
@@ -2652,15 +2662,20 @@ async function cargarDatosActualizados() {
       hideSyncStatus(); return;
     }
     for (const s of secs) {
+      const rawId = (s.id !== undefined && s.id !== '') ? s.id : (s['ID'] !== undefined ? s['ID'] : undefined);
+      const numId = typeof rawId === 'number' ? rawId : parseInt(rawId);
       const sNorm = {
-        id:        typeof s.id === 'number' ? s.id : (s.ID !== undefined ? (parseInt(s.ID)||undefined) : parseInt(s.id)||undefined),
+        id:        (!isNaN(numId) && numId > 0) ? numId : undefined,
         nombre:    s.nombre || s['Nombre Sector'] || '',
         area:      s.area   || s['Área (m²)'] || s['Area (m2)'] || '',
         ubicacion: s.ubicacion || s['Ubicación'] || s['Ubicacion'] || '',
         desc:      s.desc   || s['Descripción'] || s['Descripcion'] || '',
         updatedAt: s.updatedAt || s['Actualizado'] || ''
       };
-      if (sNorm.nombre && sNorm.nombre !== 'undefined') await dbPut('sectores', sNorm);
+      // Guardar solo si id válido y nombre real — evita error IDB "does not meet requirements"
+      if (sNorm.nombre && sNorm.nombre !== 'undefined' && typeof sNorm.id === 'number' && sNorm.id > 0) {
+        await dbPut('sectores', sNorm);
+      }
     }
     for (const i of inds) {
       const iNorm = { ...i, id: typeof i.id==='number'?i.id:parseInt(i.id)||undefined, sectorId: typeof i.sectorId==='number'?i.sectorId:parseInt(i.sectorId)||1, cantidad: parseInt(i.cantidad)||1, fotos: Array.isArray(i.fotos)?i.fotos:[] };
@@ -3500,7 +3515,13 @@ async function seedIfEmpty() {
         const res  = await fetch(url + '?action=load', { signal: AbortSignal.timeout(8000) });
         const json = await res.json();
         if (json.status === 'ok' && (json.sectores||[]).length > 0) {
-          for (const s of json.sectores)       await dbPut('sectores', s);
+          for (const s of json.sectores) {
+            const rawId = (s.id !== undefined && s.id !== '') ? s.id : (s['ID'] !== undefined ? s['ID'] : undefined);
+            const numId = typeof rawId === 'number' ? rawId : parseInt(rawId);
+            if (!isNaN(numId) && numId > 0 && s.nombre && s.nombre !== 'undefined') {
+              await dbPut('sectores', { ...s, id: numId });
+            }
+          }
           for (const i of (json.individuos||[])) await dbPut('individuos', i);
           showLoginInfo('✅ ' + (json.individuos||[]).length + ' individuos cargados desde Sheets');
           setTimeout(() => { const el = document.getElementById('login-info'); if(el) el.style.display='none'; }, 3000);
