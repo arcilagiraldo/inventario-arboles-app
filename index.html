@@ -597,8 +597,36 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .ficha-estado-rojo   { background: #ffe0e3; color: #c1121f; }
 @media(max-width:600px){
   .ficha-foto-box { display: none; }
+  .ficha-foto-mobile { display: block !important; }
   .ficha-grid-2,.ficha-grid-3 { grid-template-columns: 1fr; }
   .ficha-tabla-daso th, .ficha-tabla-daso td { font-size: 10px; padding: 5px 6px; }
+}
+.ficha-foto-mobile {
+  display: none;
+  width: 100%; max-height: 220px; object-fit: cover;
+  border-radius: 8px; margin: 8px 0;
+}
+.ficha-foto-mobile-wrap { display: none; padding: 0 16px 12px; }
+@media(max-width:600px){ .ficha-foto-mobile-wrap { display: block; } }
+
+/* ── DRAG-TO-REORDER SECTORES ── */
+.sector-card.dragging {
+  opacity: 0.45;
+  transform: scale(0.97);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  cursor: grabbing !important;
+}
+.sector-card.drag-over {
+  border-top: 3px solid var(--verde-claro);
+  transform: translateY(-3px);
+}
+.sectores-grid {
+  user-select: none;
+}
+.drag-hint {
+  font-size: 11px; color: var(--gris-texto);
+  text-align: center; margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
 }
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -1382,7 +1410,23 @@ async function renderSectores() {
     return;
   }
 
-  grid.innerHTML = sectores.map(s => {
+  // Guardar orden actual de sectores
+  const sectorOrder = getCfg('sector_order', []);
+  if (sectorOrder.length > 0) {
+    sectores.sort((a,b) => {
+      const ia = sectorOrder.indexOf(a.id);
+      const ib = sectorOrder.indexOf(b.id);
+      if (ia === -1 && ib === -1) return 0;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+  }
+
+  grid.innerHTML = (currentRole === 'admin'
+    ? '<div class="drag-hint">☰ Mantén pulsado una tarjeta para reordenar los sectores</div>'
+    : '') +
+  sectores.map(s => {
     // Filtramos los individuos de este sector
     const inds = individuos.filter(i => i.sectorId === s.id || i.sector === s.nombre);
     
@@ -1392,13 +1436,16 @@ async function renderSectores() {
     const criticos = inds.reduce((s,i) => s + (i.estado==='rojo' ? (parseInt(i.cantidad)||1) : 0), 0);
     const borderColor = criticos > 0 ? 'var(--semaforo-rojo)' : inds.some(i => i.estado === 'amarillo') ? 'var(--semaforo-amarillo)' : 'var(--verde)';
 
-    return `<div class="sector-card" style="border-left-color:${borderColor}" onclick="showSectorDetail(${s.id})">
+    return `<div class="sector-card" style="border-left-color:${borderColor}" 
+              data-sector-id="${s.id}"
+              draggable="true"
+              onclick="showSectorDetail(${s.id})">
       <div class="sector-card-header">
         <div>
           <div class="sector-name">${s.nombre}</div>
           <div class="sector-area">${s.area ? s.area + ' m²' : ''} ${s.ubicacion || ''}</div>
         </div>
-        ${currentRole === 'admin' ? `<button class="btn-tiny btn-edit" onclick="event.stopPropagation();openSectorModal(${s.id})">✏️</button>` : ''}
+        ${currentRole === 'admin' ? `<span style="font-size:18px;cursor:grab;padding:2px 4px;opacity:0.4;" title="Arrastrar para reordenar">☰</span><button class="btn-tiny btn-edit" onclick="event.stopPropagation();openSectorModal(${s.id})">✏️</button>` : ''}
       </div>
       <div class="sector-stats">
         <div><b>${inds.length}</b><br>registros</div>
@@ -1407,6 +1454,129 @@ async function renderSectores() {
       </div>
     </div>`;
   }).join('');
+
+  // Activar drag-and-drop si es admin
+  if (currentRole === 'admin') initSectorDrag();
+}
+
+// ── DRAG-TO-REORDER SECTORES ──────────────────
+function initSectorDrag() {
+  const cards = document.querySelectorAll('.sector-card[data-sector-id]');
+  let dragged = null;
+
+  cards.forEach(card => {
+    // Desktop: drag events
+    card.addEventListener('dragstart', e => {
+      dragged = card;
+      setTimeout(() => card.classList.add('dragging'), 0);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      document.querySelectorAll('.sector-card').forEach(c => c.classList.remove('drag-over'));
+      saveSectorOrder();
+    });
+    card.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (card !== dragged) {
+        document.querySelectorAll('.sector-card').forEach(c => c.classList.remove('drag-over'));
+        card.classList.add('drag-over');
+      }
+    });
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      if (card !== dragged) {
+        const grid = card.parentElement;
+        const cards2 = [...grid.querySelectorAll('.sector-card[data-sector-id]')];
+        const idxDragged = cards2.indexOf(dragged);
+        const idxTarget  = cards2.indexOf(card);
+        if (idxDragged < idxTarget) {
+          grid.insertBefore(dragged, card.nextSibling);
+        } else {
+          grid.insertBefore(dragged, card);
+        }
+      }
+      card.classList.remove('drag-over');
+    });
+
+    // Mobile: touch events (long press + drag)
+    let touchTimer = null;
+    let touchStartY = 0, touchStartX = 0;
+    let isTouchDragging = false;
+    let touchClone = null;
+
+    card.addEventListener('touchstart', e => {
+      touchStartY = e.touches[0].clientY;
+      touchStartX = e.touches[0].clientX;
+      touchTimer = setTimeout(() => {
+        isTouchDragging = true;
+        dragged = card;
+        card.classList.add('dragging');
+        // Crear clon visual
+        touchClone = card.cloneNode(true);
+        touchClone.style.cssText = `
+          position:fixed; opacity:0.85; pointer-events:none; z-index:9999;
+          width:${card.offsetWidth}px; transform:scale(1.04);
+          box-shadow:0 8px 32px rgba(0,0,0,0.25); border-radius:12px;
+          background:white; top:${card.getBoundingClientRect().top}px;
+          left:${card.getBoundingClientRect().left}px;
+        `;
+        document.body.appendChild(touchClone);
+        if (navigator.vibrate) navigator.vibrate(40);
+      }, 500); // 500ms long press
+    }, { passive: true });
+
+    card.addEventListener('touchmove', e => {
+      if (!isTouchDragging) {
+        clearTimeout(touchTimer);
+        return;
+      }
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (touchClone) {
+        touchClone.style.top  = (touch.clientY - card.offsetHeight/2) + 'px';
+        touchClone.style.left = (touch.clientX - card.offsetWidth/2)  + 'px';
+      }
+      // Encontrar la tarjeta bajo el dedo
+      if (touchClone) touchClone.style.display = 'none';
+      const elBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (touchClone) touchClone.style.display = '';
+      const targetCard = elBelow ? elBelow.closest('.sector-card[data-sector-id]') : null;
+      document.querySelectorAll('.sector-card').forEach(c => c.classList.remove('drag-over'));
+      if (targetCard && targetCard !== dragged) targetCard.classList.add('drag-over');
+    }, { passive: false });
+
+    card.addEventListener('touchend', e => {
+      clearTimeout(touchTimer);
+      if (!isTouchDragging) return;
+      isTouchDragging = false;
+      card.classList.remove('dragging');
+      if (touchClone) { touchClone.remove(); touchClone = null; }
+
+      const touch = e.changedTouches[0];
+      let targetElem = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetCard = targetElem ? targetElem.closest('.sector-card[data-sector-id]') : null;
+      document.querySelectorAll('.sector-card').forEach(c => c.classList.remove('drag-over'));
+
+      if (targetCard && targetCard !== dragged) {
+        const grid = targetCard.parentElement;
+        const allCards = [...grid.querySelectorAll('.sector-card[data-sector-id]')];
+        const idxD = allCards.indexOf(dragged);
+        const idxT = allCards.indexOf(targetCard);
+        if (idxD < idxT) grid.insertBefore(dragged, targetCard.nextSibling);
+        else              grid.insertBefore(dragged, targetCard);
+        saveSectorOrder();
+      }
+    });
+  });
+}
+
+function saveSectorOrder() {
+  const cards = document.querySelectorAll('.sector-card[data-sector-id]');
+  const order = [...cards].map(c => parseInt(c.dataset.sectorId));
+  setCfg('sector_order', order);
+  showToast('✅ Orden de sectores guardado', 'ok');
 }
 
 // Estado de grupos expandidos
@@ -1421,9 +1591,10 @@ async function showSectorDetail(sectorId) {
   document.getElementById('view-sectores').style.display      = 'none';
   document.getElementById('view-sector-detail').style.display = '';
 
-  const verde    = inds.filter(i=>i.estado==='verde').length;
-  const amarillo = inds.filter(i=>i.estado==='amarillo').length;
-  const rojo     = inds.filter(i=>i.estado==='rojo').length;
+  // Conteo por INDIVIDUOS (suma cantidad), no por registros
+  const verde    = inds.reduce((s,i)=> s + (i.estado==='verde'    ? (parseInt(i.cantidad)||1) : 0), 0);
+  const amarillo = inds.reduce((s,i)=> s + (i.estado==='amarillo' ? (parseInt(i.cantidad)||1) : 0), 0);
+  const rojo     = inds.reduce((s,i)=> s + (i.estado==='rojo'     ? (parseInt(i.cantidad)||1) : 0), 0);
 
   const raices = inds.filter(i=>!i.parentId);
   const hijos  = inds.filter(i=>!!i.parentId);
@@ -2118,56 +2289,75 @@ async function cargarDesdeSheets() {
 //  3) iframe form POST (fallback ciego — último recurso)
 // ══════════════════════════════════════════════
 async function sincronizarConSheets() {
-    console.log("[SYNC] Iniciando proceso...");
-    
-    // 1. Obtener datos
-    const sectores = JSON.parse(localStorage.getItem('sectores') || '[]');
-    const individuos = JSON.parse(localStorage.getItem('individuos') || '[]');
+  console.log("[SYNC] Iniciando proceso...");
+  // Lee datos SIEMPRE desde IndexedDB (fuente de verdad de la app)
+  const sectores   = await dbGetAll('sectores');
+  const individuos = await dbGetAll('individuos');
 
-    const url = "https://script.google.com/macros/s/AKfycbwzq3ZJJBKB6uVZSPWP7uCEjvr-QtaeUpnjHwMvqF69n1mrPyAsI5fvi3sCHWZ4UR8M/exec";
+  if (sectores.length === 0 && individuos.length === 0) {
+    console.warn("[SYNC] Sin datos en IDB — abortando sync");
+    return;
+  }
 
-    // 2. Crear o recuperar el iframe (Evita el bloqueo de ventanas emergentes)
-    let iframe = document.getElementById('hidden_iframe_sync');
-    if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = 'hidden_iframe_sync';
-        iframe.name = 'hidden_iframe_sync';
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-    }
+  // Sanitizar fotos: no enviar base64 al GAS (demasiado pesado)
+  const indsSan = individuos.map(i => ({
+    ...i,
+    fotos: Array.isArray(i.fotos) ? i.fotos.length + ' foto(s)' : '0 foto(s)'
+  }));
 
-    // 3. Crear el formulario dinámico
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = url;
-    form.target = 'hidden_iframe_sync';
+  const url = getCfg('gs_url',
+    "https://script.google.com/macros/s/AKfycbwzq3ZJJBKB6uVZSPWP7uCEjvr-QtaeUpnjHwMvqF69n1mrPyAsI5fvi3sCHWZ4UR8M/exec");
 
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'payload';
-    input.value = JSON.stringify({
-        action: 'sync',
-        sectores: sectores,
-        individuos: individuos
+  if (!url) { console.warn("[SYNC] Sin URL GAS configurada"); return; }
+
+  showSyncStatus('Sincronizando con Sheets…');
+
+  // Estrategia 1: fetch directo (funciona en la mayoría de casos)
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'sync', sectores, individuos: indsSan }),
+      signal: AbortSignal.timeout(15000)
     });
-
-    form.appendChild(input);
-    document.body.appendChild(form);
-
-    // 4. Enviar y avisar
-    try {
-        form.submit();
-        alert("🛰️ Sincronización enviada.\nLos datos de Guatapé se están actualizando en el Sheets.");
-        console.log("[SYNC] Datos enviados correctamente al iframe.");
-    } catch (e) {
-        console.error("[SYNC] Error al enviar:", e);
-        alert("Hubo un error al intentar enviar los datos.");
+    const txt  = await r.text();
+    const json = JSON.parse(txt);
+    if (json.status === 'ok') {
+      console.log("[SYNC] ✅ Sincronizado:", json.synced, "registros");
+      hideSyncStatus();
+      return;
     }
+  } catch(fetchErr) {
+    console.warn("[SYNC] fetch falló, usando iframe fallback:", fetchErr.message);
+  }
 
-    // 5. Limpieza suave
-    setTimeout(() => {
-        if (document.body.contains(form)) document.body.removeChild(form);
-    }, 2000);
+  // Estrategia 2: iframe form (fallback para CORS estricto)
+  let iframe = document.getElementById('hidden_iframe_sync');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id   = 'hidden_iframe_sync';
+    iframe.name = 'hidden_iframe_sync';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+  }
+  const form  = document.createElement('form');
+  form.method = 'POST';
+  form.action = url;
+  form.target = 'hidden_iframe_sync';
+  const inp   = document.createElement('input');
+  inp.type    = 'hidden';
+  inp.name    = 'payload';
+  inp.value   = JSON.stringify({ action: 'sync', sectores, individuos: indsSan });
+  form.appendChild(inp);
+  document.body.appendChild(form);
+  try {
+    form.submit();
+    console.log("[SYNC] iframe submit enviado");
+  } catch(e) {
+    console.error("[SYNC] Error iframe:", e);
+  }
+  setTimeout(() => { if (document.body.contains(form)) document.body.removeChild(form); }, 3000);
+  hideSyncStatus();
 }
 
 // ══════════════════════════════════════════════
@@ -3347,6 +3537,9 @@ async function openFichaModal(id) {
     <!-- Observaciones -->
     <div class="ficha-section-title" style="margin-top:0;">OBSERVACIONES</div>
     <div class="ficha-obs-box">${obsText !== '—' ? obsText : '<span style="color:#aaa;">Sin observaciones registradas</span>'}</div>
+
+    <!-- Foto en móvil (después de medidas) -->
+    ${(ind.fotos && ind.fotos.length) ? `<div class="ficha-foto-mobile-wrap"><img class="ficha-foto-mobile" src="${ind.fotos[0]}" alt="foto árbol" onclick="openFoto('${ind.fotos[0]}')"></div>` : ''}
 
     <!-- Recomendaciones -->
     <div class="ficha-section-title">RECOMENDACIONES DE INTERVENCIÓN</div>
