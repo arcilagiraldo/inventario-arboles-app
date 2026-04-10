@@ -2337,6 +2337,12 @@ async function sincronizarConSheets() {
     return;
   }
 
+  // Sanitizar sectores: filtrar inválidos antes de enviar al GAS
+  const sectoresSan = sectores.filter(s => {
+    const nom = String(s.nombre || '').trim();
+    return nom !== '' && nom !== 'undefined' && nom !== 'null';
+  });
+
   // Sanitizar fotos: no enviar base64 al GAS (demasiado pesado)
   const indsSan = individuos.map(i => ({
     ...i,
@@ -2355,7 +2361,7 @@ async function sincronizarConSheets() {
     const r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'sync', sectores, individuos: indsSan }),
+      body: JSON.stringify({ action: 'sync', sectores: sectoresSan, individuos: indsSan }),
       signal: AbortSignal.timeout(15000)
     });
     const txt  = await r.text();
@@ -2385,7 +2391,7 @@ async function sincronizarConSheets() {
   const inp   = document.createElement('input');
   inp.type    = 'hidden';
   inp.name    = 'payload';
-  inp.value   = JSON.stringify({ action: 'sync', sectores, individuos: indsSan });
+  inp.value   = JSON.stringify({ action: 'sync', sectores: sectoresSan, individuos: indsSan });
   form.appendChild(inp);
   document.body.appendChild(form);
   try {
@@ -2587,6 +2593,10 @@ async function guardarEnSheets() {
   try {
     const sectores   = await dbGetAll('sectores');
     const individuos = await dbGetAll('individuos');
+    const secSan = sectores.filter(s => {
+      const nom = String(s.nombre || '').trim();
+      return nom !== '' && nom !== 'undefined' && nom !== 'null';
+    });
     const indsSan = individuos.map(i => ({
       ...i, fotos: (i.fotos||[]).length + ' foto(s)'
     }));
@@ -2595,7 +2605,7 @@ async function guardarEnSheets() {
     const r = await fetch(url, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body:    JSON.stringify({ action: 'sync', sectores, individuos: indsSan })
+      body:    JSON.stringify({ action: 'sync', sectores: secSan, individuos: indsSan })
     });
     if (!r.ok) throw new Error('HTTP ' + r.status + ' — verifique el despliegue del Apps Script');
     const text = await r.text();
@@ -3446,13 +3456,33 @@ const DATOS_INICIALES = {
 };
 
 // Seed con control de versión — siempre actualiza si la versión de datos cambió
-const DATA_VERSION = '2.2'; // Incrementar cuando cambien DATOS_INICIALES
+const DATA_VERSION = '2.3'; // Incrementar cuando cambien DATOS_INICIALES
 async function seedIfEmpty() {
   try {
     const storedVer = localStorage.getItem('data_version');
     const sectores  = await dbGetAll('sectores');
-    // Si ya hay datos Y la versión coincide, no hacer nada
-    if (sectores.length > 0 && storedVer === DATA_VERSION) return;
+    const individuos = await dbGetAll('individuos');
+    // Verificar si las fotos del Parque Principal están cargadas
+    const gpInd = individuos.find(i => i.codigo && i.codigo.startsWith('GP') && Array.isArray(i.fotos) && i.fotos.length > 0);
+    const fotosCargadas = !!gpInd;
+    // Si ya hay datos, la versión coincide Y las fotos están cargadas, no hacer nada
+    if (sectores.length > 0 && storedVer === DATA_VERSION && fotosCargadas) return;
+    // Si faltan fotos, forzar reseed completo limpiando IDB primero
+    if (sectores.length > 0 && !fotosCargadas) {
+      console.log('[SEED] Fotos faltantes detectadas — forzando reseed con fotos...');
+      // Limpiar solo los individuos del Parque Principal para recargarlos con fotos
+      for (const ind of individuos) {
+        if (ind.codigo && ind.codigo.match(/^GP\d+$/) && (!ind.fotos || ind.fotos.length === 0)) {
+          const gpData = DATOS_INICIALES.individuos.find(d => d.codigo === ind.codigo);
+          if (gpData && gpData.fotos && gpData.fotos.length > 0) {
+            await dbPut('individuos', { ...ind, fotos: gpData.fotos });
+          }
+        }
+      }
+      localStorage.setItem('data_version', DATA_VERSION);
+      console.log('[SEED] ✅ Fotos del Parque Principal actualizadas');
+      return;
+    }
 
     const url = getCfg('gs_url', '');
     if (url) {
