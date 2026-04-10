@@ -8,7 +8,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Inventario de Árboles — Guatapé 2026 por Miguel Arcila</title>
+<title>Inventario de Árboles — Guatapé 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -1083,6 +1083,7 @@ body {
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('sector-modal')">Cancelar</button>
+      <button id="sec-delete-btn" class="btn-secondary" style="background:var(--rojo);color:#fff;display:none;" onclick="deleteSectorModal()">🗑 Eliminar Sector</button>
       <button class="btn-primary" onclick="saveSector()">💾 Guardar</button>
     </div>
   </div>
@@ -2017,6 +2018,8 @@ async function deleteIndividuo(id) {
 async function openSectorModal(id=null) {
   ['sec-id','sec-nombre','sec-area','sec-ubicacion','sec-desc'].forEach(k => document.getElementById(k).value = '');
   document.getElementById('sec-modal-title').textContent = id ? 'Editar Sector' : 'Nuevo Sector';
+  const delBtn = document.getElementById('sec-delete-btn');
+  if (delBtn) delBtn.style.display = id ? '' : 'none';
   if (id) {
     const sectores = await dbGetAll('sectores');
     const sec = sectores.find(s=>s.id===id);
@@ -2029,6 +2032,25 @@ async function openSectorModal(id=null) {
     }
   }
   document.getElementById('sector-modal').classList.add('open');
+}
+
+async function deleteSectorModal() {
+  const idVal = document.getElementById('sec-id').value;
+  if (!idVal) return;
+  const id = parseInt(idVal);
+  const nombre = document.getElementById('sec-nombre').value || 'este sector';
+  const individuos = await dbGetAll('individuos');
+  const count = individuos.filter(i => i.sectorId === id).length;
+  const msg = count > 0
+    ? `¿Eliminar el sector "${nombre}"? Contiene ${count} árbol(es). Los árboles NO se eliminan, quedarán sin sector asignado.`
+    : `¿Eliminar el sector "${nombre}"?`;
+  if (!confirm(msg)) return;
+  await dbDelete('sectores', id);
+  closeModal('sector-modal');
+  showToast('🗑 Sector eliminado', 'ok');
+  renderSectores();
+  populateSectorFilters();
+  sincronizarConSheets();
 }
 
 async function saveSector() {
@@ -2263,7 +2285,16 @@ async function cargarDesdeSheets() {
     const secs = json.sectores  || [];
     const inds = json.individuos || [];
     if (secs.length === 0 && inds.length === 0) return;
-    for (const s of secs) await dbPut('sectores', s);
+    // Normalize sector keys: GAS returns 'ID','Nombre Sector','Área (m²)','Ubicación','Descripción','Actualizado'
+    const secsFixed = secs.map(s => ({
+      id:        typeof s.id === 'number' ? s.id : (s.ID !== undefined ? (typeof s.ID === 'number' ? s.ID : parseInt(s.ID)||undefined) : (parseInt(s.id)||undefined)),
+      nombre:    s.nombre || s['Nombre Sector'] || '',
+      area:      s.area   || s['Área (m²)']    || s['Area (m2)'] || '',
+      ubicacion: s.ubicacion || s['Ubicación'] || s['Ubicacion'] || '',
+      desc:      s.desc   || s['Descripción'] || s['Descripcion'] || '',
+      updatedAt: s.updatedAt || s['Actualizado'] || ''
+    })).filter(s => s.nombre && s.nombre.toString().trim() !== '' && s.nombre !== 'undefined');
+    for (const s of secsFixed) await dbPut('sectores', s);
     const indsFixed = inds.map(i => ({
       ...i,
       id:      typeof i.id === 'number' ? i.id : parseInt(i.id)||undefined,
@@ -2594,8 +2625,21 @@ async function cargarDatosActualizados() {
       res.innerHTML = '<span style="color:var(--amarillo)">⚠️ Sheets está vacío. Sube los datos primero desde otro dispositivo.</span>';
       hideSyncStatus(); return;
     }
-    for (const s of secs) await dbPut('sectores',  s);
-    for (const i of inds) await dbPut('individuos', i);
+    for (const s of secs) {
+      const sNorm = {
+        id:        typeof s.id === 'number' ? s.id : (s.ID !== undefined ? (parseInt(s.ID)||undefined) : parseInt(s.id)||undefined),
+        nombre:    s.nombre || s['Nombre Sector'] || '',
+        area:      s.area   || s['Área (m²)'] || s['Area (m2)'] || '',
+        ubicacion: s.ubicacion || s['Ubicación'] || s['Ubicacion'] || '',
+        desc:      s.desc   || s['Descripción'] || s['Descripcion'] || '',
+        updatedAt: s.updatedAt || s['Actualizado'] || ''
+      };
+      if (sNorm.nombre && sNorm.nombre !== 'undefined') await dbPut('sectores', sNorm);
+    }
+    for (const i of inds) {
+      const iNorm = { ...i, id: typeof i.id==='number'?i.id:parseInt(i.id)||undefined, sectorId: typeof i.sectorId==='number'?i.sectorId:parseInt(i.sectorId)||1, cantidad: parseInt(i.cantidad)||1, fotos: Array.isArray(i.fotos)?i.fotos:[] };
+      await dbPut('individuos', iNorm);
+    }
     res.innerHTML = '<span style="color:var(--semaforo-verde)">✅ Cargados: ' + inds.length + ' individuos, ' + secs.length + ' sectores</span>';
     showToast('📥 Datos actualizados desde Sheets', 'ok');
     renderDashboard();
@@ -2863,8 +2907,21 @@ function loadFromSheets(e) {
     var ss  = SpreadsheetApp.openById(SHEET_ID);
     var shS = ss.getSheetByName('Sectores');
     var shI = ss.getSheetByName('Individuos');
-    var sectores   = shS ? sheetToObjects(shS) : [];
-    var individuos = shI ? sheetToObjects(shI) : [];
+    var rawSectores = shS ? sheetToObjects(shS) : [];
+    var individuos  = shI ? sheetToObjects(shI) : [];
+
+    // Normalizar claves de sectores para round-trip correcto con la app
+    var sectores = rawSectores.map(function(s) {
+      return {
+        id:        s.id        || s['ID']            || '',
+        nombre:    s.nombre    || s['Nombre Sector'] || '',
+        area:      s.area      || s['Área (m²)']     || s['Area (m2)'] || '',
+        ubicacion: s.ubicacion || s['Ubicación']     || s['Ubicacion'] || '',
+        desc:      s.desc      || s['Descripción']   || s['Descripcion'] || '',
+        updatedAt: s.updatedAt || s['Actualizado']   || ''
+      };
+    }).filter(function(s) { return s.nombre && s.nombre !== '' && s.nombre !== 'undefined'; });
+
     var result = { status: 'ok', sectores: sectores, individuos: individuos };
 
     if (e && e.parameter && e.parameter.callback) {
@@ -3453,7 +3510,7 @@ async function openFichaModal(id) {
   const estadoLabel = { verde:'🟢 Bueno', amarillo:'🟡 Regular', rojo:'🔴 Crítico' }[ind.estado] || ind.estado;
 
   const fotoHtml = (ind.fotos && ind.fotos.length)
-    ? `<img src="${ind.fotos[0]}" alt="foto" style="width:100%;height:180px;object-fit:cover;">`
+    ? ind.fotos.map((src,idx) => `<img src="${src}" alt="foto ${idx+1}" style="width:100%;${ind.fotos.length===1?'height:180px;':'height:120px;'}object-fit:cover;${idx>0?'margin-top:2px;':''}" onclick="openFoto('${src}')" style="cursor:pointer;">`).join('')
     : `<div class="ficha-foto-placeholder">🌿</div>`;
 
   const dap  = ind.dap  || '—';
@@ -3539,7 +3596,7 @@ async function openFichaModal(id) {
     <div class="ficha-obs-box">${obsText !== '—' ? obsText : '<span style="color:#aaa;">Sin observaciones registradas</span>'}</div>
 
     <!-- Foto en móvil (después de medidas) -->
-    ${(ind.fotos && ind.fotos.length) ? `<div class="ficha-foto-mobile-wrap"><img class="ficha-foto-mobile" src="${ind.fotos[0]}" alt="foto árbol" onclick="openFoto('${ind.fotos[0]}')"></div>` : ''}
+    ${(ind.fotos && ind.fotos.length) ? `<div class="ficha-foto-mobile-wrap">${ind.fotos.map(src=>`<img class="ficha-foto-mobile" src="${src}" alt="foto árbol" onclick="openFoto('${src}')" style="margin-bottom:4px;">`).join('')}</div>` : ''}
 
     <!-- Recomendaciones -->
     <div class="ficha-section-title">RECOMENDACIONES DE INTERVENCIÓN</div>
