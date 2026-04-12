@@ -915,7 +915,7 @@ body {
             </button>
           </div>
           <div class="export-btn-row">
-            <button class="btn-export" onclick="limpiarSectoresUndefined().then(()=>{renderSectores();renderDashboard();})" style="background:#7b2d2d;color:#fff;">
+            <button class="btn-export" onclick="limpiarYReportar()" style="background:#7b2d2d;color:#fff;">
               <span style="font-size:20px;line-height:1;">🧹</span>
               <div><div>Limpiar sectores inválidos</div><div class="btn-export-desc">Elimina todos los sectores con nombre "undefined" o vacío</div></div>
             </button>
@@ -3730,7 +3730,6 @@ async function limpiarSectoresUndefined() {
     const total = elimSec + elimInd;
     if (total > 0) {
       console.log(`[LIMPIEZA] ✅ ${elimSec} sector(es) y ${elimInd} individuo(s) inválidos eliminados`);
-      showToast(`🧹 ${elimSec} sector(es) y ${elimInd} árbol(es) con datos inválidos eliminados`, 'ok');
     }
     // Restaurar sectores base si IDB quedó sin ninguno válido
     const sectoresRestantes = await dbGetAll('sectores');
@@ -3739,8 +3738,35 @@ async function limpiarSectoresUndefined() {
       console.warn('[LIMPIEZA] IDB sin sectores válidos — restaurando DATOS_INICIALES...');
       for (const s of DATOS_INICIALES.sectores) await dbPut('sectores', s);
     }
+    return { elimSec, elimInd, restorados: validos.length === 0 };
   } catch(e) {
     console.warn('[LIMPIEZA] Error limpiando datos:', e);
+    return { elimSec: 0, elimInd: 0, error: e.message };
+  }
+}
+
+// Wrapper con feedback visual completo en la UI
+async function limpiarYReportar() {
+  const res = document.getElementById('export-result');
+  res.innerHTML = '<span style="color:var(--gris-texto)">⏳ Limpiando datos inválidos…</span>';
+  try {
+    const r = await limpiarSectoresUndefined();
+    renderSectores();
+    renderDashboard();
+    const sectoresFinales = await dbGetAll('sectores');
+    const validos = sectoresFinales.filter(s => s.nombre && String(s.nombre) !== 'undefined');
+    let msg = '';
+    if (r.elimSec > 0 || r.elimInd > 0) {
+      msg += `🧹 Eliminados: ${r.elimSec} sector(es) y ${r.elimInd} árbol(es) inválidos. `;
+    }
+    if (r.restorados) {
+      msg += `🔄 Sectores base restaurados automáticamente. `;
+    }
+    msg += `✅ IDB actual: ${validos.length} sectores válidos.`;
+    res.innerHTML = `<span style="color:var(--semaforo-verde)">${msg}</span>`;
+    showToast('🧹 Limpieza completada', 'ok');
+  } catch(e) {
+    res.innerHTML = `<span style="color:var(--rojo)">❌ Error: ${e.message}</span>`;
   }
 }
 
