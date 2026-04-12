@@ -2352,9 +2352,10 @@ async function sincronizarConSheets() {
   });
 
   if (sectoresSan.length === 0) {
-    console.warn("[SYNC] ⚠️ Sin sectores válidos — abortando para no borrar Sheets");
-    hideSyncStatus();
-    return;
+    console.warn("[SYNC] ⚠️ Sin sectores válidos — reparando IDB con DATOS_INICIALES...");
+    for (const s of DATOS_INICIALES.sectores) await dbPut('sectores', s);
+    sectoresSan.push(...DATOS_INICIALES.sectores);
+    console.log("[SYNC] Sectores reparados:", sectoresSan.length);
   }
 
   console.log("[SYNC] Sectores válidos:", sectoresSan.length, "de", sectores.length);
@@ -2605,9 +2606,12 @@ async function guardarEnSheets() {
       return nom !== '' && nom !== 'undefined' && nom !== 'null';
     });
     console.log('[GUARDAR] Sectores válidos:', secSan.length, 'de', sectores.length, 'totales');
+    // Si IDB no tiene sectores válidos, usar DATOS_INICIALES como respaldo
     if (secSan.length === 0) {
-      res.innerHTML = '<span style="color:var(--rojo)">❌ No hay sectores válidos. Crea al menos un sector antes de guardar.</span>';
-      return;
+      console.warn('[GUARDAR] IDB sin sectores válidos — reparando con DATOS_INICIALES...');
+      for (const s of DATOS_INICIALES.sectores) await dbPut('sectores', s);
+      secSan.push(...DATOS_INICIALES.sectores);
+      console.log('[GUARDAR] Sectores reparados:', secSan.length);
     }
 
     const indsSan = individuos.map(i => ({
@@ -3727,6 +3731,13 @@ async function limpiarSectoresUndefined() {
     if (total > 0) {
       console.log(`[LIMPIEZA] ✅ ${elimSec} sector(es) y ${elimInd} individuo(s) inválidos eliminados`);
       showToast(`🧹 ${elimSec} sector(es) y ${elimInd} árbol(es) con datos inválidos eliminados`, 'ok');
+    }
+    // Restaurar sectores base si IDB quedó sin ninguno válido
+    const sectoresRestantes = await dbGetAll('sectores');
+    const validos = sectoresRestantes.filter(s => s.nombre && String(s.nombre).trim() !== '' && String(s.nombre) !== 'undefined');
+    if (validos.length === 0) {
+      console.warn('[LIMPIEZA] IDB sin sectores válidos — restaurando DATOS_INICIALES...');
+      for (const s of DATOS_INICIALES.sectores) await dbPut('sectores', s);
     }
   } catch(e) {
     console.warn('[LIMPIEZA] Error limpiando datos:', e);
