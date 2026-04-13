@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- APP VERSION: 5.4 | 2026-04-08 -->
+<!-- APP VERSION: 5.5 | 2026-04-12 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1579,11 +1579,20 @@ function initSectorDrag() {
   });
 }
 
-function saveSectorOrder() {
+async function saveSectorOrder() {
   const cards = document.querySelectorAll('.sector-card[data-sector-id]');
   const order = [...cards].map(c => parseInt(c.dataset.sectorId));
   setCfg('sector_order', order);
+  // También persistir el orden en IDB para sincronizar entre dispositivos
+  const sectores = await dbGetAll('sectores');
+  for (const s of sectores) {
+    const pos = order.indexOf(s.id);
+    if (pos !== -1 && s.orden !== pos) {
+      await dbPut('sectores', { ...s, orden: pos });
+    }
+  }
   showToast('✅ Orden de sectores guardado', 'ok');
+  sincronizarConSheets();
 }
 
 // Estado de grupos expandidos
@@ -1630,9 +1639,9 @@ async function showSectorDetail(sectorId) {
       + '<td style="max-width:160px;font-size:12px;color:var(--gris-texto);">' + (r.obs||'—') + '</td>'
       + (currentRole==='admin'
           ? '<td style="white-space:nowrap;">'
-              + '<button class="btn-tiny btn-edit" data-action="edit" data-id="' + r.id + '" onclick="event.stopPropagation()" style="cursor:pointer;">✏️</button> '
+              + '<button class="btn-tiny btn-edit" data-action="edit" data-id="' + r.id + '" style="cursor:pointer;">✏️</button> '
               + '<button class="btn-tiny btn-del"  data-action="del"  data-id="' + r.id + '" data-sector="' + sectorId + '" style="cursor:pointer;">🗑</button> '
-              + '<button data-action="ubicar" data-id="' + r.id + '" onclick="event.stopPropagation()" style="background:var(--verde-claro);color:#fff;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;">📍 Ubicar</button>'
+              + '<button data-action="ubicar" data-id="' + r.id + '" style="background:var(--verde-claro);color:#fff;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;">📍 Ubicar</button>'
               + '</td>'
           : '')
       + '</tr>';
@@ -1658,7 +1667,7 @@ async function showSectorDetail(sectorId) {
               ? '<td style="white-space:nowrap;">'
                   + '<button class="btn-tiny btn-edit" data-action="edit"   data-id="' + h.id + '" style="cursor:pointer;">✏️</button> '
                   + '<button class="btn-tiny btn-del"  data-action="del"    data-id="' + h.id + '" data-sector="' + sectorId + '" style="cursor:pointer;">🗑</button> '
-                  + '<button data-action="ubicar" data-id="' + h.id + '" onclick="event.stopPropagation()" style="background:var(--verde-claro);color:#fff;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;">📍 Ubicar</button>'
+                  + '<button data-action="ubicar" data-id="' + h.id + '" style="background:var(--verde-claro);color:#fff;border:none;border-radius:5px;padding:2px 7px;cursor:pointer;font-size:10px;">📍 Ubicar</button>'
                   + '</td>'
               : '')
           + '</tr>';
@@ -1705,6 +1714,9 @@ async function showSectorDetail(sectorId) {
 document.addEventListener('click', async function(e) {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
+  // Detener propagación para que no dispare el onclick de la fila (openFichaModal)
+  e.stopPropagation();
+  e.preventDefault();
   const action  = btn.dataset.action;
   const id      = parseInt(btn.dataset.id);
   const sectorId = parseInt(btn.dataset.sector);
@@ -2305,16 +2317,32 @@ async function cargarDesdeSheets() {
       };
     }).filter(s => s.nombre && s.nombre.toString().trim() !== '' && s.nombre !== 'undefined' && s.id > 0);
     for (const s of secsFixed) await dbPut('sectores', s);
+    // Si los sectores traen campo 'orden', actualizar el sector_order local
+    const secsConOrden = secsFixed.filter(s => s.orden !== undefined && s.orden !== 99);
+    if (secsConOrden.length > 0) {
+      const ordenado = [...secsFixed].sort((a,b) => (a.orden||99) - (b.orden||99));
+      setCfg('sector_order', ordenado.map(s => s.id));
+      console.log('[LOAD] Orden de sectores restaurado desde Sheets');
+    }
+    // Recuperar fotos locales actuales para no perderlas al recargar desde Sheets
+    const localInds = await dbGetAll('individuos');
+    const localFotosMap = {};
+    localInds.forEach(li => { if (li.id && Array.isArray(li.fotos) && li.fotos.length > 0) localFotosMap[li.id] = li.fotos; });
+
     const indsFixed = inds.map(i => {
       const rawId  = typeof i.id === 'number' ? i.id : parseInt(i.id);
       const rawSec = typeof i.sectorId === 'number' ? i.sectorId : parseInt(i.sectorId);
       const nom    = (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null;
+      // Si fotos viene como string (ej: "2 foto(s)") o vacío, preservar las fotos locales
+      const fotosFromSheet = Array.isArray(i.fotos) ? i.fotos : [];
+      const fotosLocal     = localFotosMap[rawId] || [];
+      const fotosFinales   = fotosFromSheet.length > 0 ? fotosFromSheet : fotosLocal;
       return {
         ...i,
         id:       (rawId > 0)  ? rawId  : undefined,
         sectorId: (rawSec > 0) ? rawSec : 1,
         cantidad: parseInt(i.cantidad) > 0 ? parseInt(i.cantidad) : 1,
-        fotos:    Array.isArray(i.fotos) ? i.fotos : [],
+        fotos:    fotosFinales,
         nombre:   nom
       };
     }).filter(i => i.id > 0 && i.nombre);
@@ -2672,15 +2700,23 @@ async function cargarDatosActualizados() {
       };
       if (sNorm.nombre && sNorm.nombre !== 'undefined' && sNorm.id > 0) await dbPut('sectores', sNorm);
     }
+    // Preservar fotos locales antes de sobreescribir con datos de Sheets
+    const _localInds = await dbGetAll('individuos');
+    const _localFotosMap = {};
+    _localInds.forEach(li => { if (li.id && Array.isArray(li.fotos) && li.fotos.length > 0) _localFotosMap[li.id] = li.fotos; });
+
     for (const i of inds) {
       const _iid  = typeof i.id === 'number' ? i.id : parseInt(i.id);
       const _isec = typeof i.sectorId === 'number' ? i.sectorId : parseInt(i.sectorId);
       const _inom = (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null;
+      // Fotos: preferir las de Sheets si son array real; si no, conservar las locales
+      const _fotosSheet = Array.isArray(i.fotos) ? i.fotos : [];
+      const _fotosLocal = _localFotosMap[_iid] || [];
       const iNorm = { ...i,
         id:       (_iid > 0)  ? _iid  : undefined,
         sectorId: (_isec > 0) ? _isec : 1,
         cantidad: parseInt(i.cantidad) > 0 ? parseInt(i.cantidad) : 1,
-        fotos:    Array.isArray(i.fotos) ? i.fotos : [],
+        fotos:    _fotosSheet.length > 0 ? _fotosSheet : _fotosLocal,
         nombre:   _inom
       };
       if (iNorm.id > 0 && iNorm.nombre) await dbPut('individuos', iNorm);
