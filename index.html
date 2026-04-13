@@ -2354,11 +2354,6 @@ async function cargarDesdeSheets() {
     await limpiarSectoresUndefined();
     renderDashboard();
     renderSectores();
-    // Si el mapa ya está visible, refrescarlo con los datos recién llegados
-    const mapaTab = document.getElementById('tab-mapa');
-    if (mapaTab && mapaTab.classList.contains('active')) {
-      renderMapa();
-    }
   } catch(e) {
     console.warn('cargarDesdeSheets:', e.message);
   }
