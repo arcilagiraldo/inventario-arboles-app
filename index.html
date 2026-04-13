@@ -879,6 +879,11 @@ body {
           <div class="config-card-label">📤 EXPORTAR</div>
 
           <div class="export-btn-row">
+            <button class="btn-export" onclick="diagnosticoSync()" style="background:#2c3e50;color:#fff;">
+              <span style="font-size:20px;line-height:1;">🔍</span>
+              <div><div>Diagnóstico de datos</div><div class="btn-export-desc">Muestra qué hay en este dispositivo y si la URL está configurada</div></div>
+            </button>
+          </div>
             <button class="btn-export btn-export-blue" onclick="guardarEnSheets()">
               <span style="font-size:20px;line-height:1;">☁️</span>
               <div><div>Guardar en Google Sheets</div><div class="btn-export-desc">Sube todos los datos al spreadsheet configurado</div></div>
@@ -2488,10 +2493,14 @@ async function sincronizarConSheets() {
       : []
   }));
 
-  const url = getCfg('gs_url',
-    "https://script.google.com/macros/s/AKfycbwzq3ZJJBKB6uVZSPWP7uCEjvr-QtaeUpnjHwMvqF69n1mrPyAsI5fvi3sCHWZ4UR8M/exec");
+  const url = getCfg('gs_url', '');
 
-  if (!url) { console.warn("[SYNC] Sin URL GAS configurada"); return; }
+  if (!url) {
+    showToast('⚠️ Configura la URL del Apps Script en Configuración → Drive', 'err');
+    console.warn("[SYNC] Sin URL GAS configurada en localStorage");
+    hideSyncStatus();
+    return;
+  }
 
   showSyncStatus('Sincronizando con Sheets…');
 
@@ -2508,8 +2517,11 @@ async function sincronizarConSheets() {
     const json = JSON.parse(await r.text());
     if (json.status === 'ok') {
       console.log("[SYNC] ✅ Sincronizado:", json.synced, "registros,", sectoresSan.length, "sectores");
+      showToast('✅ Sincronizado: ' + (json.synced || 0) + ' árboles en Sheets', 'ok');
       hideSyncStatus();
       return;
+    } else {
+      console.warn("[SYNC] GAS respondió error:", json.error);
     }
   } catch(e1) {
     console.warn("[SYNC] Intento 1 falló:", e1.message);
@@ -2525,11 +2537,13 @@ async function sincronizarConSheets() {
     const json2 = JSON.parse(await r2.text());
     if (json2.status === 'ok') {
       console.log("[SYNC] ✅ Sincronizado (intento 2):", json2.synced, "registros");
+      showToast('✅ Sincronizado: ' + (json2.synced || 0) + ' árboles en Sheets', 'ok');
       hideSyncStatus();
       return;
     }
   } catch(e2) {
     console.error("[SYNC] Ambos intentos fallaron:", e2.message);
+    showToast('❌ Sin conexión al Apps Script. Verifica la URL en Configuración.', 'err');
   }
 
   hideSyncStatus();
@@ -2669,6 +2683,35 @@ async function testGS() {
   } catch(e) {
     el.innerHTML = `<span style="color:var(--rojo)">❌ Error de conexión. Verifica la URL y permisos del Web App.</span>`;
   }
+}
+
+// Diagnóstico completo: muestra qué hay en IDB y qué pasará al sincronizar
+async function diagnosticoSync() {
+  const el  = document.getElementById('export-result');
+  const url = getCfg('gs_url', '');
+  const secs = await dbGetAll('sectores');
+  const inds = await dbGetAll('individuos');
+  const conCoords = inds.filter(i => i.lat && i.lat !== '' && i.lng && i.lng !== '');
+  const conFotos  = inds.filter(i => Array.isArray(i.fotos) && i.fotos.length > 0);
+  const fotasDrive = inds.filter(i => Array.isArray(i.fotos) && i.fotos.some(f => f && f.startsWith('http')));
+
+  el.innerHTML = `
+    <div style="font-size:13px;line-height:1.8;font-family:monospace;background:#f5f5f5;padding:12px;border-radius:8px;">
+      <b>📊 DIAGNÓSTICO DE DATOS LOCALES (IDB)</b><br>
+      • Sectores en dispositivo: <b>${secs.length}</b><br>
+      • Árboles en dispositivo: <b>${inds.length}</b><br>
+      • Árboles con coordenadas GPS: <b>${conCoords.length}</b><br>
+      • Árboles con fotos: <b>${conFotos.length}</b> (${fotasDrive.length} en Drive, ${conFotos.length - fotasDrive.length} solo local)<br>
+      <br>
+      <b>⚙️ CONFIGURACIÓN</b><br>
+      • URL Apps Script: <b>${url ? '✅ Configurada' : '❌ NO configurada — esto impide la sincronización'}</b><br>
+      ${url ? '• URL: <span style="font-size:10px;">' + url.substring(0,60) + '…</span>' : ''}<br>
+      <br>
+      <b>💡 PRÓXIMO PASO:</b><br>
+      ${!url ? '⚠️ Ve a <b>Configuración → Drive</b>, pega la URL de tu Apps Script y presiona <b>Guardar configuración</b>.' :
+        inds.length === 0 ? '⚠️ No hay datos en este dispositivo. Presiona <b>Cargar datos actualizados</b>.' :
+        '✅ Presiona el botón <b>☁️ Guardar en Google Sheets</b> para subir todos los datos.'}
+    </div>`;
 }
 
 function renderAdminEmails() {
@@ -3636,54 +3679,62 @@ const DATOS_INICIALES = {
 const DATA_VERSION = '2.3'; // Incrementar cuando cambien DATOS_INICIALES
 async function seedIfEmpty() {
   try {
-    const storedVer = localStorage.getItem('data_version');
-    const sectores  = await dbGetAll('sectores');
+    const storedVer  = localStorage.getItem('data_version');
+    const sectores   = await dbGetAll('sectores');
     const individuos = await dbGetAll('individuos');
-    // Verificar si las fotos del Parque Principal están cargadas
-    const gpInd = individuos.find(i => i.codigo && i.codigo.startsWith('GP') && Array.isArray(i.fotos) && i.fotos.length > 0);
-    const fotosCargadas = !!gpInd;
-    // Si ya hay datos, la versión coincide Y las fotos están cargadas, no hacer nada
-    if (sectores.length > 0 && storedVer === DATA_VERSION && fotosCargadas) return;
-    // Si faltan fotos, forzar reseed completo limpiando IDB primero
-    if (sectores.length > 0 && !fotosCargadas) {
-      console.log('[SEED] Fotos faltantes detectadas — forzando reseed con fotos...');
-      // Limpiar solo los individuos del Parque Principal para recargarlos con fotos
-      for (const ind of individuos) {
-        if (ind.codigo && ind.codigo.match(/^GP\d+$/) && (!ind.fotos || ind.fotos.length === 0)) {
-          const gpData = DATOS_INICIALES.individuos.find(d => d.codigo === ind.codigo);
-          if (gpData && gpData.fotos && gpData.fotos.length > 0) {
-            await dbPut('individuos', { ...ind, fotos: gpData.fotos });
+    const url        = getCfg('gs_url', '');
+
+    // ── SIEMPRE intentar cargar desde Sheets si hay URL configurada ──
+    // Esto garantiza que TODOS los dispositivos siempre tengan los datos más recientes
+    if (url) {
+      try {
+        showLoginInfo('Cargando datos actualizados desde Google Sheets…');
+        const res  = await fetch(url + '?action=load', { signal: AbortSignal.timeout(12000) });
+        const json = await res.json();
+        if (json.status === 'ok' && (json.sectores||[]).length > 0) {
+          // Preservar fotos locales antes de sobreescribir
+          const localFotosMap = {};
+          individuos.forEach(li => {
+            if (li.id && Array.isArray(li.fotos) && li.fotos.length > 0) localFotosMap[li.id] = li.fotos;
+          });
+
+          for (const s of (json.sectores||[])) {
+            const rawId = typeof s.id === 'number' ? s.id : parseInt(s.id);
+            if (rawId > 0 && s.nombre && s.nombre !== 'undefined') {
+              await dbPut('sectores', { ...s, id: rawId });
+            }
           }
+          for (const i of (json.individuos||[])) {
+            const _sid  = typeof i.id === 'number' ? i.id : parseInt(i.id);
+            const _nom  = (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null;
+            if (_sid > 0 && _nom) {
+              // Preservar fotos locales (base64) si Sheets no tiene URL de Drive
+              const fotosSheet = Array.isArray(i.fotos) ? i.fotos : [];
+              const fotosLocal = localFotosMap[_sid] || [];
+              const fotosFinales = fotosSheet.length > 0 ? fotosSheet : fotosLocal;
+              await dbPut('individuos', { ...i, id: _sid, nombre: _nom, fotos: fotosFinales });
+            }
+          }
+          localStorage.setItem('data_version', DATA_VERSION);
+          const n = (json.individuos||[]).length;
+          showLoginInfo('✅ ' + n + ' registros cargados desde Sheets');
+          setTimeout(() => { const el = document.getElementById('login-info'); if(el) el.style.display='none'; }, 3000);
+          console.log('[SEED] ✅ Datos cargados desde Sheets:', n, 'individuos,', (json.sectores||[]).length, 'sectores');
+          return;  // Éxito — no cargar datos locales
         }
+      } catch(e) {
+        console.warn('[SEED] Carga desde Sheets falló, usando datos locales:', e.message);
       }
-      localStorage.setItem('data_version', DATA_VERSION);
-      console.log('[SEED] ✅ Fotos del Parque Principal actualizadas');
+    }
+
+    // ── Si ya hay datos locales válidos y la versión coincide, no tocar nada ──
+    if (sectores.length > 0 && storedVer === DATA_VERSION) {
+      console.log('[SEED] Datos locales v' + DATA_VERSION + ' OK — ' + sectores.length + ' sectores, ' + individuos.length + ' individuos');
       return;
     }
 
-    const url = getCfg('gs_url', '');
-    if (url) {
-      try {
-        showLoginInfo('Cargando datos desde Google Sheets…');
-        const res  = await fetch(url + '?action=load', { signal: AbortSignal.timeout(8000) });
-        const json = await res.json();
-        if (json.status === 'ok' && (json.sectores||[]).length > 0) {
-          for (const s of json.sectores)       await dbPut('sectores', s);
-          for (const i of (json.individuos||[])) {
-            const _sid = typeof i.id === 'number' ? i.id : parseInt(i.id);
-            const _nom = (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null;
-            if (_sid > 0 && _nom) await dbPut('individuos', { ...i, id: _sid, nombre: _nom });
-          }
-          showLoginInfo('✅ ' + (json.individuos||[]).length + ' individuos cargados desde Sheets');
-          setTimeout(() => { const el = document.getElementById('login-info'); if(el) el.style.display='none'; }, 3000);
-          return;
-        }
-      } catch(e) {
-        console.warn('Carga desde Sheets falló, usando datos locales:', e);
-      }
-    }
-
-    // Fallback: datos iniciales hardcodeados
+    // ── Fallback: sembrar datos iniciales hardcodeados ──
+    console.log('[SEED] Sembrando datos iniciales...');
     for (const s of DATOS_INICIALES.sectores)   await dbPut('sectores', s);
     for (const i of DATOS_INICIALES.individuos) await dbPut('individuos', i);
     localStorage.setItem('data_version', DATA_VERSION);
