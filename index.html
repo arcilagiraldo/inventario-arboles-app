@@ -1873,11 +1873,13 @@ async function renderMapa() {
 
   const secFilter  = document.getElementById('filter-mapa-sector').value;
   const filtered   = secFilter ? individuos.filter(i=>String(i.sectorId)===secFilter) : individuos;
-  // Filtro robusto: descartar lat/lng vacíos, null, o NaN
+  // Filtro robusto: descartar lat/lng vacíos, null, o NaN — soporta string y número
   const withCoords = filtered.filter(i => {
     const lat = parseFloat(i.lat);
     const lng = parseFloat(i.lng);
-    return i.lat && i.lng && !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+    return i.lat !== '' && i.lat !== null && i.lat !== undefined &&
+           i.lng !== '' && i.lng !== null && i.lng !== undefined &&
+           !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
   });
 
   if (!mapaLeaflet) {
