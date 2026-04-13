@@ -1911,7 +1911,8 @@ async function renderMapa() {
       ${semaforoHTML(i.estado)}&nbsp;
       <span class="accion-badge accion-${i.accion}" style="font-size:11px;">${accionLabel(i.accion)}</span>
       ${i.obs?'<br><small style="color:#888;">'+i.obs+'</small>':''}
-      ${i.fotos&&i.fotos.length?'<br><img src="'+i.fotos[0]+'" style="width:100%;border-radius:6px;margin-top:6px;">':''}
+      ${i.fotos&&i.fotos.length?'<br><img src="'+i.fotos[0]+'" style="width:100%;border-radius:6px;margin-top:6px;" onerror="this.style.display=\'none\'">':''}
+      <br><button onclick="openFichaModal(${i.id})" style="margin-top:6px;width:100%;padding:5px;background:#2d6a4f;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">📋 Ver ficha completa</button>
     `);
     marker.on('mouseover', function(){ this.openPopup(); });
   });
@@ -1990,7 +1991,25 @@ function removeFoto(idx) {
 document.getElementById('ind-fotos').addEventListener('change', function() {
   Array.from(this.files).forEach(f => {
     const reader = new FileReader();
-    reader.onload = e => { pendingFotos.push(e.target.result); renderFotoPreview(); };
+    reader.onload = e => {
+      // Comprimir imagen antes de guardar (max 800px, calidad 0.75)
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else        { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL('image/jpeg', 0.75);
+        pendingFotos.push(compressed);
+        renderFotoPreview();
+      };
+      img.src = e.target.result;
+    };
     reader.readAsDataURL(f);
   });
 });
@@ -2000,7 +2019,24 @@ async function saveIndividuo() {
   const sectorId = parseInt(document.getElementById('ind-sector').value);
   if (!nombre || !sectorId) { showToast('Nombre y sector son obligatorios','err'); return; }
 
-  const fotos = [...currentEditFotos, ...pendingFotos];
+  // ── Subir fotos pendientes a Drive antes de guardar ──
+  let fotasFinales = [...currentEditFotos];
+  if (pendingFotos.length > 0) {
+    const idVal = document.getElementById('ind-id').value;
+    const indId = idVal ? parseInt(idVal) : Date.now();
+    showToast('📤 Subiendo fotos a Drive…','ok');
+    for (const dataUrl of pendingFotos) {
+      try {
+        const driveUrl = await subirFotoADrive(dataUrl, indId);
+        fotasFinales.push(driveUrl);
+      } catch(e) {
+        // Si falla la subida a Drive, guardar base64 local como respaldo
+        console.warn('[FOTO] No se pudo subir a Drive, guardando localmente:', e.message);
+        fotasFinales.push(dataUrl);
+      }
+    }
+  }
+
   const obj = {
     nombre,
     cientifico: document.getElementById('ind-cientifico').value.trim(),
@@ -2012,7 +2048,7 @@ async function saveIndividuo() {
     lat:        document.getElementById('ind-lat').value.trim(),
     lng:        document.getElementById('ind-lng').value.trim(),
     codigo:     (document.getElementById('ind-codigo')||{value:''}).value.trim(),
-    fotos,
+    fotos:      fotasFinales,
     updatedAt: new Date().toISOString()
   };
   const idVal = document.getElementById('ind-id').value;
@@ -2025,6 +2061,40 @@ async function saveIndividuo() {
   renderDashboard();
   // Sincronizar con Sheets en segundo plano (no bloquea la UI)
   sincronizarConSheets();
+}
+
+// ── Subir foto base64 a Google Drive vía Apps Script ──────────────────────────
+async function subirFotoADrive(dataUrl, individuoId) {
+  const url = getCfg('gs_url', '');
+  if (!url) throw new Error('Sin URL de Apps Script configurada');
+
+  // Separar el prefijo data:image/jpeg;base64, del contenido real
+  const commaIdx = dataUrl.indexOf(',');
+  if (commaIdx < 0) throw new Error('Formato de imagen inválido');
+  const meta     = dataUrl.substring(0, commaIdx);  // "data:image/jpeg;base64"
+  const base64   = dataUrl.substring(commaIdx + 1); // datos puros base64
+  const mimeMatch = meta.match(/data:([^;]+);/);
+  const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const ext      = mimeType.split('/')[1] || 'jpg';
+  const fileName = 'foto_' + individuoId + '_' + Date.now() + '.' + ext;
+
+  const payload = JSON.stringify({
+    action:      'subirFoto',
+    base64,
+    mimeType,
+    fileName,
+    individuoId: String(individuoId)
+  });
+
+  const r = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body:    payload,
+    signal:  AbortSignal.timeout(60000)  // fotos pueden tardar más
+  });
+  const json = JSON.parse(await r.text());
+  if (json.status !== 'ok') throw new Error(json.error || 'Error al subir foto');
+  return json.url;  // URL pública de Drive lista para usar en <img>
 }
 
 async function deleteIndividuo(id) {
@@ -2411,7 +2481,11 @@ async function sincronizarConSheets() {
 
   const indsSan = individuos.map(i => ({
     ...i,
-    fotos: Array.isArray(i.fotos) ? i.fotos : []
+    // Solo enviar URLs de Drive al GAS (no base64 — superan límites de tamaño)
+    // Las fotos base64 se quedan en IDB local del dispositivo que las tomó
+    fotos: Array.isArray(i.fotos)
+      ? i.fotos.filter(f => typeof f === 'string' && f.startsWith('http'))
+      : []
   }));
 
   const url = getCfg('gs_url',
@@ -2664,7 +2738,11 @@ async function guardarEnSheets() {
     }
 
     const indsSan = individuos.map(i => ({
-      ...i, fotos: Array.isArray(i.fotos) ? i.fotos : []
+      ...i,
+      // Solo URLs de Drive — no base64 (límite de payload y de celda en Sheets)
+      fotos: Array.isArray(i.fotos)
+        ? i.fotos.filter(f => typeof f === 'string' && f.startsWith('http'))
+        : []
     }));
 
     console.log('[GUARDAR] Enviando datos al Apps Script...');
@@ -3654,7 +3732,18 @@ async function openFichaModal(id) {
   const estadoLabel = { verde:'🟢 Bueno', amarillo:'🟡 Regular', rojo:'🔴 Crítico' }[ind.estado] || ind.estado;
 
   const fotoHtml = (ind.fotos && ind.fotos.length)
-    ? ind.fotos.map((src,idx) => `<img src="${src}" alt="foto ${idx+1}" style="width:100%;${ind.fotos.length===1?'height:180px;':'height:120px;'}object-fit:cover;${idx>0?'margin-top:2px;':''}" onclick="openFoto('${src}')" style="cursor:pointer;">`).join('')
+    ? ind.fotos.map((src,idx) => {
+        // Construir un src seguro: si es URL Drive, usarla directo; si es base64, usarla directo
+        const safeSrc = src || '';
+        const escapedSrc = safeSrc.startsWith('data:') ? safeSrc : safeSrc.replace(/'/g, "%27");
+        return `<img src="${safeSrc}" alt="foto ${idx+1}"
+          style="width:100%;${ind.fotos.length===1?'height:180px;':'height:120px;'}object-fit:cover;${idx>0?'margin-top:2px;':''}cursor:pointer;"
+          onclick="openFoto('${escapedSrc}')"
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div style="display:none;width:100%;${ind.fotos.length===1?'height:180px;':'height:120px;'}align-items:center;justify-content:center;background:#f0f0f0;color:#999;font-size:12px;border-radius:4px;">
+          📷 Foto no disponible offline
+        </div>`;
+      }).join('')
     : `<div class="ficha-foto-placeholder">🌿</div>`;
 
   const dap  = ind.dap  || '—';
@@ -3758,6 +3847,12 @@ async function openFichaModal(id) {
         <div class="ficha-coord-label">Longitud</div>
         <div class="ficha-coord-val">${lngVal}</div>
       </div>
+      ${(ind.lat && ind.lng && ind.lat !== '' && ind.lng !== '') ? `
+      <div class="ficha-coord-cell" style="grid-column:1/-1;margin-top:6px;">
+        <button onclick="closeFichaModal();verEnMapa(${parseFloat(ind.lat)},${parseFloat(ind.lng)},'${(ind.nombre||'').replace(/'/g,"\\'")}','${ind.estado}')" style="width:100%;padding:10px;background:var(--verde);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
+          📍 Ver ubicación en el mapa
+        </button>
+      </div>` : ''}
     </div>
   `;
   document.getElementById('ficha-modal-overlay').classList.add('open');
