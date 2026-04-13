@@ -2208,14 +2208,33 @@ async function verEnMapa(lat, lng, nombre, estado) {
 //  GPS
 // ══════════════════════════════════════════════
 function getGPS() {
-  if (!navigator.geolocation) { showToast('Geolocalización no disponible','err'); return; }
+  if (!navigator.geolocation) {
+    showToast('Geolocalización no disponible en este dispositivo','err');
+    return;
+  }
+  showToast('📡 Obteniendo ubicación GPS…','ok');
   navigator.geolocation.getCurrentPosition(
     pos => {
-      document.getElementById('ind-lat').value = pos.coords.latitude.toFixed(7);
-      document.getElementById('ind-lng').value = pos.coords.longitude.toFixed(7);
-      showToast('📍 Ubicación obtenida','ok');
+      const lat = pos.coords.latitude.toFixed(7);
+      const lng = pos.coords.longitude.toFixed(7);
+      document.getElementById('ind-lat').value = lat;
+      document.getElementById('ind-lng').value = lng;
+      const acc = pos.coords.accuracy ? Math.round(pos.coords.accuracy) + 'm' : '';
+      showToast('📍 Ubicación obtenida' + (acc ? ' (precisión ±' + acc + ')' : ''), 'ok');
     },
-    () => showToast('No se pudo obtener la ubicación','err')
+    err => {
+      let msg = 'No se pudo obtener la ubicación GPS. ';
+      if (err.code === 1) {
+        msg = '🔒 Permiso de ubicación denegado. En tu navegador ve a Configuración del sitio y permite la ubicación para esta página.';
+      } else if (err.code === 2) {
+        msg = '📡 Posición no disponible. En PC de escritorio el GPS puede no funcionar — ingresa las coordenadas manualmente o usa el mapa de abajo.';
+      } else if (err.code === 3) {
+        msg = '⏱ Tiempo agotado para obtener GPS. Intenta de nuevo o ingresa las coordenadas manualmente.';
+      }
+      showToast(msg, 'err');
+      console.warn('[GPS] Error código', err.code, err.message);
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
 }
 
