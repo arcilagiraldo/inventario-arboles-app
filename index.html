@@ -2390,7 +2390,7 @@ async function sincronizarConSheets() {
 
   const indsSan = individuos.map(i => ({
     ...i,
-    fotos: Array.isArray(i.fotos) ? i.fotos.length + ' foto(s)' : '0 foto(s)'
+    fotos: Array.isArray(i.fotos) ? i.fotos : []
   }));
 
   const url = getCfg('gs_url',
@@ -2643,7 +2643,7 @@ async function guardarEnSheets() {
     }
 
     const indsSan = individuos.map(i => ({
-      ...i, fotos: (i.fotos||[]).length + ' foto(s)'
+      ...i, fotos: Array.isArray(i.fotos) ? i.fotos : []
     }));
 
     console.log('[GUARDAR] Enviando datos al Apps Script...');
@@ -2713,11 +2713,25 @@ async function cargarDatosActualizados() {
       const _fotosSheet = Array.isArray(i.fotos) ? i.fotos : [];
       const _fotosLocal = _localFotosMap[_iid] || [];
       const iNorm = { ...i,
-        id:       (_iid > 0)  ? _iid  : undefined,
-        sectorId: (_isec > 0) ? _isec : 1,
-        cantidad: parseInt(i.cantidad) > 0 ? parseInt(i.cantidad) : 1,
-        fotos:    _fotosSheet.length > 0 ? _fotosSheet : _fotosLocal,
-        nombre:   _inom
+        id:          (_iid > 0)  ? _iid  : undefined,
+        sectorId:    (_isec > 0) ? _isec : 1,
+        cantidad:    parseInt(i.cantidad) > 0 ? parseInt(i.cantidad) : 1,
+        fotos:       _fotosSheet.length > 0 ? _fotosSheet : _fotosLocal,
+        nombre:      _inom,
+        lat:         String(i.lat  || '').trim(),
+        lng:         String(i.lng  || '').trim(),
+        estado:      i.estado  || 'verde',
+        accion:      i.accion  || 'sin-novedad',
+        codigo:      String(i.codigo || '').trim(),
+        cientifico:  String(i.cientifico  || '').trim(),
+        familia:     String(i.familia     || '').trim(),
+        dap:         String(i.dap         || '').trim(),
+        ht:          String(i.ht          || '').trim(),
+        copa:        String(i.copa        || '').trim(),
+        habito:      String(i.habito      || 'Árbol').trim(),
+        tratamiento: String(i.tratamiento || '').trim(),
+        tomografia:  String(i.tomografia  || 'No').trim(),
+        obs:         String(i.obs         || '').trim()
       };
       if (iNorm.id > 0 && iNorm.nombre) await dbPut('individuos', iNorm);
     }
