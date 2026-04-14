@@ -2050,8 +2050,8 @@ async function saveIndividuo() {
     estado:     document.getElementById('ind-estado').value,
     accion:     document.getElementById('ind-accion').value,
     obs:        document.getElementById('ind-obs').value.trim(),
-    lat:        document.getElementById('ind-lat').value.trim(),
-    lng:        document.getElementById('ind-lng').value.trim(),
+    lat:        document.getElementById('ind-lat').value.trim().replace(',', '.'),
+    lng:        document.getElementById('ind-lng').value.trim().replace(',', '.'),
     codigo:     (document.getElementById('ind-codigo')||{value:''}).value.trim(),
     fotos:      fotasFinales,
     updatedAt: new Date().toISOString()
@@ -2429,17 +2429,25 @@ async function cargarDesdeSheets() {
       const rawId  = typeof i.id === 'number' ? i.id : parseInt(i.id);
       const rawSec = typeof i.sectorId === 'number' ? i.sectorId : parseInt(i.sectorId);
       const nom    = (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null;
-      // Si fotos viene como string (ej: "2 foto(s)") o vacío, preservar las fotos locales
       const fotosFromSheet = Array.isArray(i.fotos) ? i.fotos : [];
       const fotosLocal     = localFotosMap[rawId] || [];
       const fotosFinales   = fotosFromSheet.length > 0 ? fotosFromSheet : fotosLocal;
+      // Coordenadas: limpiar y validar — rechazar valores fuera de rango geográfico
+      const latRaw = String(i.lat || '').trim();
+      const lngRaw = String(i.lng || '').trim();
+      const latNum = parseFloat(latRaw);
+      const lngNum = parseFloat(lngRaw);
+      const latOk  = !isNaN(latNum) && latNum !== 0 && latNum > -90  && latNum < 90;
+      const lngOk  = !isNaN(lngNum) && lngNum !== 0 && lngNum > -180 && lngNum < 180;
       return {
         ...i,
         id:       (rawId > 0)  ? rawId  : undefined,
         sectorId: (rawSec > 0) ? rawSec : 1,
         cantidad: parseInt(i.cantidad) > 0 ? parseInt(i.cantidad) : 1,
         fotos:    fotosFinales,
-        nombre:   nom
+        nombre:   nom,
+        lat:      latOk ? latRaw : '',
+        lng:      lngOk ? lngRaw : ''
       };
     }).filter(i => i.id > 0 && i.nombre);
     for (const i of indsFixed) await dbPut('individuos', i);
@@ -2691,7 +2699,16 @@ async function diagnosticoSync() {
   const url = getCfg('gs_url', '');
   const secs = await dbGetAll('sectores');
   const inds = await dbGetAll('individuos');
-  const conCoords = inds.filter(i => i.lat && i.lat !== '' && i.lng && i.lng !== '');
+  const conCoords = inds.filter(i => {
+    const lat = parseFloat(i.lat); const lng = parseFloat(i.lng);
+    return i.lat && i.lat !== '' && !isNaN(lat) && lat !== 0 && lat > -90 && lat < 90 &&
+           i.lng && i.lng !== '' && !isNaN(lng) && lng !== 0 && lng > -180 && lng < 180;
+  });
+  const coordsCorruptas = inds.filter(i => {
+    const lat = parseFloat(i.lat); const lng = parseFloat(i.lng);
+    return (i.lat && i.lat !== '' && (!isNaN(lat)) && (lat <= -90 || lat >= 90 || lat === 0)) ||
+           (i.lng && i.lng !== '' && (!isNaN(lng)) && (lng <= -180 || lng >= 180 || lng === 0));
+  });
   const conFotos  = inds.filter(i => Array.isArray(i.fotos) && i.fotos.length > 0);
   const fotasDrive = inds.filter(i => Array.isArray(i.fotos) && i.fotos.some(f => f && f.startsWith('http')));
 
@@ -2700,7 +2717,8 @@ async function diagnosticoSync() {
       <b>📊 DIAGNÓSTICO DE DATOS LOCALES (IDB)</b><br>
       • Sectores en dispositivo: <b>${secs.length}</b><br>
       • Árboles en dispositivo: <b>${inds.length}</b><br>
-      • Árboles con coordenadas GPS: <b>${conCoords.length}</b><br>
+      • Árboles con coordenadas GPS válidas: <b>${conCoords.length}</b><br>
+      ${coordsCorruptas.length > 0 ? `• ⚠️ Coords corruptas en IDB (fuera de rango): <b style="color:#c1121f;">${coordsCorruptas.length}</b> — serán ignoradas en el mapa<br>` : ''}
       • Árboles con fotos: <b>${conFotos.length}</b> (${fotasDrive.length} en Drive, ${conFotos.length - fotasDrive.length} solo local)<br>
       <br>
       <b>⚙️ CONFIGURACIÓN</b><br>
