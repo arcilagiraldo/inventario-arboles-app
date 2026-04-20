@@ -1870,6 +1870,15 @@ async function populateSectorFilters() {
 // ══════════════════════════════════════════════
 //  MAPA
 // ══════════════════════════════════════════════
+
+// Parsea coordenadas de forma robusta: soporta coma como separador decimal,
+// strings vacíos, null, NaN y valores fuera de rango geográfico.
+function parsearCoord(val) {
+  if (!val || val === '') return null;
+  var n = parseFloat(String(val).replace(',', '.'));
+  return isNaN(n) ? null : n;
+}
+
 async function renderMapa() {
   await populateSectorFilters();
   const individuos = await dbGetAll('individuos');
@@ -1878,13 +1887,13 @@ async function renderMapa() {
 
   const secFilter  = document.getElementById('filter-mapa-sector').value;
   const filtered   = secFilter ? individuos.filter(i=>String(i.sectorId)===secFilter) : individuos;
-  // Filtro robusto: descartar lat/lng vacíos, null, o NaN — soporta string y número
+  // Filtro robusto usando parsearCoord — descarta vacíos, null, NaN y fuera de rango
   const withCoords = filtered.filter(i => {
-    const lat = parseFloat(i.lat);
-    const lng = parseFloat(i.lng);
-    return i.lat !== '' && i.lat !== null && i.lat !== undefined &&
-           i.lng !== '' && i.lng !== null && i.lng !== undefined &&
-           !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+    const lat = parsearCoord(i.lat);
+    const lng = parsearCoord(i.lng);
+    return lat !== null && lng !== null &&
+           lat > -90 && lat < 90 && lng > -180 && lng < 180 &&
+           lat !== 0 && lng !== 0;
   });
 
   if (!mapaLeaflet) {
@@ -1903,8 +1912,8 @@ async function renderMapa() {
 
   const colorMap = { verde: '#40916c', amarillo: '#f4a261', rojo: '#e63946' };
   withCoords.forEach(i => {
-    const lat   = parseFloat(i.lat);
-    const lng   = parseFloat(i.lng);
+    const lat   = parsearCoord(i.lat);
+    const lng   = parsearCoord(i.lng);
     const color = colorMap[i.estado] || '#888';
     const marker = L.circleMarker([lat, lng], {
       radius: 11, fillColor: color, color: '#fff', weight: 2.5, fillOpacity: 0.92
@@ -3923,8 +3932,31 @@ async function openFichaModal(id) {
         </button>
       </div>` : ''}
     </div>
+
+    <!-- QR + Compartir ficha pública -->
+    <div id="qr-container" style="text-align:center;margin:16px 0">
+      <img id="qr-img" src="" style="width:180px;border:3px solid #1b4332;border-radius:8px;padding:4px">
+      <p style="font-size:.8em;color:#666;margin:6px 0 8px;">Escanea para ver esta ficha</p>
+      <a id="qr-link" href="#" target="_blank"
+         style="display:inline-block;background:#1b4332;color:#fff;padding:8px 16px;
+                border-radius:6px;text-decoration:none;font-size:.85em">
+        🔗 Compartir ficha pública
+      </a>
+    </div>
   `;
+  // Generar QR después de insertar el HTML
+  mostrarQR(ind.id);
   document.getElementById('ficha-modal-overlay').classList.add('open');
+}
+
+// ── Genera y muestra el QR de la ficha pública de un individuo ──
+function mostrarQR(individuoId) {
+  var fichaUrl = 'https://arcilagiraldo.github.io/inventario-arboles-app/?ficha=' + individuoId;
+  var qrUrl    = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(fichaUrl);
+  var qrImg  = document.getElementById('qr-img');
+  var qrLink = document.getElementById('qr-link');
+  if (qrImg)  qrImg.src  = qrUrl;
+  if (qrLink) qrLink.href = fichaUrl;
 }
 
 function closeFichaModal() {
