@@ -879,6 +879,11 @@ body {
           <div class="config-card-label">📤 EXPORTAR</div>
 
           <div class="export-btn-row">
+            <button class="btn-export" onclick="diagnosticoSync()" style="background:#2c3e50;color:#fff;">
+              <span style="font-size:20px;line-height:1;">🔍</span>
+              <div><div>Diagnóstico de datos</div><div class="btn-export-desc">Muestra qué hay en este dispositivo y si la URL está configurada</div></div>
+            </button>
+          </div>
             <button class="btn-export btn-export-blue" onclick="guardarEnSheets()">
               <span style="font-size:20px;line-height:1;">☁️</span>
               <div><div>Guardar en Google Sheets</div><div class="btn-export-desc">Sube todos los datos al spreadsheet configurado</div></div>
@@ -1034,8 +1039,8 @@ body {
       <div class="form-group">
         <label>📍 Ubicación GPS</label>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input class="form-control" id="ind-lat" type="number" step="any" placeholder="Latitud  ej. 6.2345678" style="flex:1;min-width:120px;">
-          <input class="form-control" id="ind-lng" type="number" step="any" placeholder="Longitud  ej. -75.1234567" style="flex:1;min-width:120px;">
+          <input class="form-control" id="ind-lat" type="text" inputmode="decimal" placeholder="Latitud  ej. 6.2345678" style="flex:1;min-width:120px;">
+          <input class="form-control" id="ind-lng" type="text" inputmode="decimal" placeholder="Longitud  ej. -75.1234567" style="flex:1;min-width:120px;">
         </div>
         <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
           <button class="btn-secondary" style="flex:1;padding:8px 10px;font-size:12px;" onclick="getGPS()">📡 Usar mi ubicación actual</button>
@@ -1911,7 +1916,8 @@ async function renderMapa() {
       ${semaforoHTML(i.estado)}&nbsp;
       <span class="accion-badge accion-${i.accion}" style="font-size:11px;">${accionLabel(i.accion)}</span>
       ${i.obs?'<br><small style="color:#888;">'+i.obs+'</small>':''}
-      ${i.fotos&&i.fotos.length?'<br><img src="'+i.fotos[0]+'" style="width:100%;border-radius:6px;margin-top:6px;">':''}
+      ${i.fotos&&i.fotos.length?'<br><img src="'+i.fotos[0]+'" style="width:100%;border-radius:6px;margin-top:6px;" onerror="this.style.display=\'none\'">':''}
+      <br><button onclick="openFichaModal(${i.id})" style="margin-top:6px;width:100%;padding:5px;background:#2d6a4f;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">📋 Ver ficha completa</button>
     `);
     marker.on('mouseover', function(){ this.openPopup(); });
   });
@@ -1990,7 +1996,25 @@ function removeFoto(idx) {
 document.getElementById('ind-fotos').addEventListener('change', function() {
   Array.from(this.files).forEach(f => {
     const reader = new FileReader();
-    reader.onload = e => { pendingFotos.push(e.target.result); renderFotoPreview(); };
+    reader.onload = e => {
+      // Comprimir imagen antes de guardar (max 800px, calidad 0.75)
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else        { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL('image/jpeg', 0.75);
+        pendingFotos.push(compressed);
+        renderFotoPreview();
+      };
+      img.src = e.target.result;
+    };
     reader.readAsDataURL(f);
   });
 });
@@ -2000,7 +2024,24 @@ async function saveIndividuo() {
   const sectorId = parseInt(document.getElementById('ind-sector').value);
   if (!nombre || !sectorId) { showToast('Nombre y sector son obligatorios','err'); return; }
 
-  const fotos = [...currentEditFotos, ...pendingFotos];
+  // ── Subir fotos pendientes a Drive antes de guardar ──
+  let fotasFinales = [...currentEditFotos];
+  if (pendingFotos.length > 0) {
+    const idVal = document.getElementById('ind-id').value;
+    const indId = idVal ? parseInt(idVal) : Date.now();
+    showToast('📤 Subiendo fotos a Drive…','ok');
+    for (const dataUrl of pendingFotos) {
+      try {
+        const driveUrl = await subirFotoADrive(dataUrl, indId);
+        fotasFinales.push(driveUrl);
+      } catch(e) {
+        // Si falla la subida a Drive, guardar base64 local como respaldo
+        console.warn('[FOTO] No se pudo subir a Drive, guardando localmente:', e.message);
+        fotasFinales.push(dataUrl);
+      }
+    }
+  }
+
   const obj = {
     nombre,
     cientifico: document.getElementById('ind-cientifico').value.trim(),
@@ -2009,10 +2050,10 @@ async function saveIndividuo() {
     estado:     document.getElementById('ind-estado').value,
     accion:     document.getElementById('ind-accion').value,
     obs:        document.getElementById('ind-obs').value.trim(),
-    lat:        document.getElementById('ind-lat').value.trim(),
-    lng:        document.getElementById('ind-lng').value.trim(),
+    lat:        document.getElementById('ind-lat').value.trim().replace(',', '.'),
+    lng:        document.getElementById('ind-lng').value.trim().replace(',', '.'),
     codigo:     (document.getElementById('ind-codigo')||{value:''}).value.trim(),
-    fotos,
+    fotos:      fotasFinales,
     updatedAt: new Date().toISOString()
   };
   const idVal = document.getElementById('ind-id').value;
@@ -2025,6 +2066,40 @@ async function saveIndividuo() {
   renderDashboard();
   // Sincronizar con Sheets en segundo plano (no bloquea la UI)
   sincronizarConSheets();
+}
+
+// ── Subir foto base64 a Google Drive vía Apps Script ──────────────────────────
+async function subirFotoADrive(dataUrl, individuoId) {
+  const url = getCfg('gs_url', '');
+  if (!url) throw new Error('Sin URL de Apps Script configurada');
+
+  // Separar el prefijo data:image/jpeg;base64, del contenido real
+  const commaIdx = dataUrl.indexOf(',');
+  if (commaIdx < 0) throw new Error('Formato de imagen inválido');
+  const meta     = dataUrl.substring(0, commaIdx);  // "data:image/jpeg;base64"
+  const base64   = dataUrl.substring(commaIdx + 1); // datos puros base64
+  const mimeMatch = meta.match(/data:([^;]+);/);
+  const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const ext      = mimeType.split('/')[1] || 'jpg';
+  const fileName = 'foto_' + individuoId + '_' + Date.now() + '.' + ext;
+
+  const payload = JSON.stringify({
+    action:      'subirFoto',
+    base64,
+    mimeType,
+    fileName,
+    individuoId: String(individuoId)
+  });
+
+  const r = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body:    payload,
+    signal:  AbortSignal.timeout(60000)  // fotos pueden tardar más
+  });
+  const json = JSON.parse(await r.text());
+  if (json.status !== 'ok') throw new Error(json.error || 'Error al subir foto');
+  return json.url;  // URL pública de Drive lista para usar en <img>
 }
 
 async function deleteIndividuo(id) {
@@ -2208,14 +2283,33 @@ async function verEnMapa(lat, lng, nombre, estado) {
 //  GPS
 // ══════════════════════════════════════════════
 function getGPS() {
-  if (!navigator.geolocation) { showToast('Geolocalización no disponible','err'); return; }
+  if (!navigator.geolocation) {
+    showToast('Geolocalización no disponible en este dispositivo','err');
+    return;
+  }
+  showToast('📡 Obteniendo ubicación GPS…','ok');
   navigator.geolocation.getCurrentPosition(
     pos => {
-      document.getElementById('ind-lat').value = pos.coords.latitude.toFixed(7);
-      document.getElementById('ind-lng').value = pos.coords.longitude.toFixed(7);
-      showToast('📍 Ubicación obtenida','ok');
+      const lat = pos.coords.latitude.toFixed(7);
+      const lng = pos.coords.longitude.toFixed(7);
+      document.getElementById('ind-lat').value = lat;
+      document.getElementById('ind-lng').value = lng;
+      const acc = pos.coords.accuracy ? Math.round(pos.coords.accuracy) + 'm' : '';
+      showToast('📍 Ubicación obtenida' + (acc ? ' (precisión ±' + acc + ')' : ''), 'ok');
     },
-    () => showToast('No se pudo obtener la ubicación','err')
+    err => {
+      let msg = 'No se pudo obtener la ubicación GPS. ';
+      if (err.code === 1) {
+        msg = '🔒 Permiso de ubicación denegado. En tu navegador ve a Configuración del sitio y permite la ubicación para esta página.';
+      } else if (err.code === 2) {
+        msg = '📡 Posición no disponible. En PC de escritorio el GPS puede no funcionar — ingresa las coordenadas manualmente o usa el mapa de abajo.';
+      } else if (err.code === 3) {
+        msg = '⏱ Tiempo agotado para obtener GPS. Intenta de nuevo o ingresa las coordenadas manualmente.';
+      }
+      showToast(msg, 'err');
+      console.warn('[GPS] Error código', err.code, err.message);
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
 }
 
@@ -2335,17 +2429,25 @@ async function cargarDesdeSheets() {
       const rawId  = typeof i.id === 'number' ? i.id : parseInt(i.id);
       const rawSec = typeof i.sectorId === 'number' ? i.sectorId : parseInt(i.sectorId);
       const nom    = (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null;
-      // Si fotos viene como string (ej: "2 foto(s)") o vacío, preservar las fotos locales
       const fotosFromSheet = Array.isArray(i.fotos) ? i.fotos : [];
       const fotosLocal     = localFotosMap[rawId] || [];
       const fotosFinales   = fotosFromSheet.length > 0 ? fotosFromSheet : fotosLocal;
+      // Coordenadas: limpiar y validar — rechazar valores fuera de rango geográfico
+      const latRaw = String(i.lat || '').trim();
+      const lngRaw = String(i.lng || '').trim();
+      const latNum = parseFloat(latRaw);
+      const lngNum = parseFloat(lngRaw);
+      const latOk  = !isNaN(latNum) && latNum !== 0 && latNum > -90  && latNum < 90;
+      const lngOk  = !isNaN(lngNum) && lngNum !== 0 && lngNum > -180 && lngNum < 180;
       return {
         ...i,
         id:       (rawId > 0)  ? rawId  : undefined,
         sectorId: (rawSec > 0) ? rawSec : 1,
         cantidad: parseInt(i.cantidad) > 0 ? parseInt(i.cantidad) : 1,
         fotos:    fotosFinales,
-        nombre:   nom
+        nombre:   nom,
+        lat:      latOk ? latRaw : '',
+        lng:      lngOk ? lngRaw : ''
       };
     }).filter(i => i.id > 0 && i.nombre);
     for (const i of indsFixed) await dbPut('individuos', i);
@@ -2392,13 +2494,21 @@ async function sincronizarConSheets() {
 
   const indsSan = individuos.map(i => ({
     ...i,
-    fotos: Array.isArray(i.fotos) ? i.fotos : []
+    // Solo enviar URLs de Drive al GAS (no base64 — superan límites de tamaño)
+    // Las fotos base64 se quedan en IDB local del dispositivo que las tomó
+    fotos: Array.isArray(i.fotos)
+      ? i.fotos.filter(f => typeof f === 'string' && f.startsWith('http'))
+      : []
   }));
 
-  const url = getCfg('gs_url',
-    "https://script.google.com/macros/s/AKfycbwzq3ZJJBKB6uVZSPWP7uCEjvr-QtaeUpnjHwMvqF69n1mrPyAsI5fvi3sCHWZ4UR8M/exec");
+  const url = getCfg('gs_url', '');
 
-  if (!url) { console.warn("[SYNC] Sin URL GAS configurada"); return; }
+  if (!url) {
+    showToast('⚠️ Configura la URL del Apps Script en Configuración → Drive', 'err');
+    console.warn("[SYNC] Sin URL GAS configurada en localStorage");
+    hideSyncStatus();
+    return;
+  }
 
   showSyncStatus('Sincronizando con Sheets…');
 
@@ -2415,8 +2525,11 @@ async function sincronizarConSheets() {
     const json = JSON.parse(await r.text());
     if (json.status === 'ok') {
       console.log("[SYNC] ✅ Sincronizado:", json.synced, "registros,", sectoresSan.length, "sectores");
+      showToast('✅ Sincronizado: ' + (json.synced || 0) + ' árboles en Sheets', 'ok');
       hideSyncStatus();
       return;
+    } else {
+      console.warn("[SYNC] GAS respondió error:", json.error);
     }
   } catch(e1) {
     console.warn("[SYNC] Intento 1 falló:", e1.message);
@@ -2432,11 +2545,13 @@ async function sincronizarConSheets() {
     const json2 = JSON.parse(await r2.text());
     if (json2.status === 'ok') {
       console.log("[SYNC] ✅ Sincronizado (intento 2):", json2.synced, "registros");
+      showToast('✅ Sincronizado: ' + (json2.synced || 0) + ' árboles en Sheets', 'ok');
       hideSyncStatus();
       return;
     }
   } catch(e2) {
     console.error("[SYNC] Ambos intentos fallaron:", e2.message);
+    showToast('❌ Sin conexión al Apps Script. Verifica la URL en Configuración.', 'err');
   }
 
   hideSyncStatus();
@@ -2578,6 +2693,45 @@ async function testGS() {
   }
 }
 
+// Diagnóstico completo: muestra qué hay en IDB y qué pasará al sincronizar
+async function diagnosticoSync() {
+  const el  = document.getElementById('export-result');
+  const url = getCfg('gs_url', '');
+  const secs = await dbGetAll('sectores');
+  const inds = await dbGetAll('individuos');
+  const conCoords = inds.filter(i => {
+    const lat = parseFloat(i.lat); const lng = parseFloat(i.lng);
+    return i.lat && i.lat !== '' && !isNaN(lat) && lat !== 0 && lat > -90 && lat < 90 &&
+           i.lng && i.lng !== '' && !isNaN(lng) && lng !== 0 && lng > -180 && lng < 180;
+  });
+  const coordsCorruptas = inds.filter(i => {
+    const lat = parseFloat(i.lat); const lng = parseFloat(i.lng);
+    return (i.lat && i.lat !== '' && (!isNaN(lat)) && (lat <= -90 || lat >= 90 || lat === 0)) ||
+           (i.lng && i.lng !== '' && (!isNaN(lng)) && (lng <= -180 || lng >= 180 || lng === 0));
+  });
+  const conFotos  = inds.filter(i => Array.isArray(i.fotos) && i.fotos.length > 0);
+  const fotasDrive = inds.filter(i => Array.isArray(i.fotos) && i.fotos.some(f => f && f.startsWith('http')));
+
+  el.innerHTML = `
+    <div style="font-size:13px;line-height:1.8;font-family:monospace;background:#f5f5f5;padding:12px;border-radius:8px;">
+      <b>📊 DIAGNÓSTICO DE DATOS LOCALES (IDB)</b><br>
+      • Sectores en dispositivo: <b>${secs.length}</b><br>
+      • Árboles en dispositivo: <b>${inds.length}</b><br>
+      • Árboles con coordenadas GPS válidas: <b>${conCoords.length}</b><br>
+      ${coordsCorruptas.length > 0 ? `• ⚠️ Coords corruptas en IDB (fuera de rango): <b style="color:#c1121f;">${coordsCorruptas.length}</b> — serán ignoradas en el mapa<br>` : ''}
+      • Árboles con fotos: <b>${conFotos.length}</b> (${fotasDrive.length} en Drive, ${conFotos.length - fotasDrive.length} solo local)<br>
+      <br>
+      <b>⚙️ CONFIGURACIÓN</b><br>
+      • URL Apps Script: <b>${url ? '✅ Configurada' : '❌ NO configurada — esto impide la sincronización'}</b><br>
+      ${url ? '• URL: <span style="font-size:10px;">' + url.substring(0,60) + '…</span>' : ''}<br>
+      <br>
+      <b>💡 PRÓXIMO PASO:</b><br>
+      ${!url ? '⚠️ Ve a <b>Configuración → Drive</b>, pega la URL de tu Apps Script y presiona <b>Guardar configuración</b>.' :
+        inds.length === 0 ? '⚠️ No hay datos en este dispositivo. Presiona <b>Cargar datos actualizados</b>.' :
+        '✅ Presiona el botón <b>☁️ Guardar en Google Sheets</b> para subir todos los datos.'}
+    </div>`;
+}
+
 function renderAdminEmails() {
   const emails = getCfg('admin_emails', ['admin@guatape.gov.co', 'arcilagiraldo@gmail.com']);
   const el = document.getElementById('emails-list');
@@ -2645,7 +2799,11 @@ async function guardarEnSheets() {
     }
 
     const indsSan = individuos.map(i => ({
-      ...i, fotos: Array.isArray(i.fotos) ? i.fotos : []
+      ...i,
+      // Solo URLs de Drive — no base64 (límite de payload y de celda en Sheets)
+      fotos: Array.isArray(i.fotos)
+        ? i.fotos.filter(f => typeof f === 'string' && f.startsWith('http'))
+        : []
     }));
 
     console.log('[GUARDAR] Enviando datos al Apps Script...');
@@ -3539,54 +3697,62 @@ const DATOS_INICIALES = {
 const DATA_VERSION = '2.3'; // Incrementar cuando cambien DATOS_INICIALES
 async function seedIfEmpty() {
   try {
-    const storedVer = localStorage.getItem('data_version');
-    const sectores  = await dbGetAll('sectores');
+    const storedVer  = localStorage.getItem('data_version');
+    const sectores   = await dbGetAll('sectores');
     const individuos = await dbGetAll('individuos');
-    // Verificar si las fotos del Parque Principal están cargadas
-    const gpInd = individuos.find(i => i.codigo && i.codigo.startsWith('GP') && Array.isArray(i.fotos) && i.fotos.length > 0);
-    const fotosCargadas = !!gpInd;
-    // Si ya hay datos, la versión coincide Y las fotos están cargadas, no hacer nada
-    if (sectores.length > 0 && storedVer === DATA_VERSION && fotosCargadas) return;
-    // Si faltan fotos, forzar reseed completo limpiando IDB primero
-    if (sectores.length > 0 && !fotosCargadas) {
-      console.log('[SEED] Fotos faltantes detectadas — forzando reseed con fotos...');
-      // Limpiar solo los individuos del Parque Principal para recargarlos con fotos
-      for (const ind of individuos) {
-        if (ind.codigo && ind.codigo.match(/^GP\d+$/) && (!ind.fotos || ind.fotos.length === 0)) {
-          const gpData = DATOS_INICIALES.individuos.find(d => d.codigo === ind.codigo);
-          if (gpData && gpData.fotos && gpData.fotos.length > 0) {
-            await dbPut('individuos', { ...ind, fotos: gpData.fotos });
+    const url        = getCfg('gs_url', '');
+
+    // ── SIEMPRE intentar cargar desde Sheets si hay URL configurada ──
+    // Esto garantiza que TODOS los dispositivos siempre tengan los datos más recientes
+    if (url) {
+      try {
+        showLoginInfo('Cargando datos actualizados desde Google Sheets…');
+        const res  = await fetch(url + '?action=load', { signal: AbortSignal.timeout(12000) });
+        const json = await res.json();
+        if (json.status === 'ok' && (json.sectores||[]).length > 0) {
+          // Preservar fotos locales antes de sobreescribir
+          const localFotosMap = {};
+          individuos.forEach(li => {
+            if (li.id && Array.isArray(li.fotos) && li.fotos.length > 0) localFotosMap[li.id] = li.fotos;
+          });
+
+          for (const s of (json.sectores||[])) {
+            const rawId = typeof s.id === 'number' ? s.id : parseInt(s.id);
+            if (rawId > 0 && s.nombre && s.nombre !== 'undefined') {
+              await dbPut('sectores', { ...s, id: rawId });
+            }
           }
+          for (const i of (json.individuos||[])) {
+            const _sid  = typeof i.id === 'number' ? i.id : parseInt(i.id);
+            const _nom  = (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null;
+            if (_sid > 0 && _nom) {
+              // Preservar fotos locales (base64) si Sheets no tiene URL de Drive
+              const fotosSheet = Array.isArray(i.fotos) ? i.fotos : [];
+              const fotosLocal = localFotosMap[_sid] || [];
+              const fotosFinales = fotosSheet.length > 0 ? fotosSheet : fotosLocal;
+              await dbPut('individuos', { ...i, id: _sid, nombre: _nom, fotos: fotosFinales });
+            }
+          }
+          localStorage.setItem('data_version', DATA_VERSION);
+          const n = (json.individuos||[]).length;
+          showLoginInfo('✅ ' + n + ' registros cargados desde Sheets');
+          setTimeout(() => { const el = document.getElementById('login-info'); if(el) el.style.display='none'; }, 3000);
+          console.log('[SEED] ✅ Datos cargados desde Sheets:', n, 'individuos,', (json.sectores||[]).length, 'sectores');
+          return;  // Éxito — no cargar datos locales
         }
+      } catch(e) {
+        console.warn('[SEED] Carga desde Sheets falló, usando datos locales:', e.message);
       }
-      localStorage.setItem('data_version', DATA_VERSION);
-      console.log('[SEED] ✅ Fotos del Parque Principal actualizadas');
+    }
+
+    // ── Si ya hay datos locales válidos y la versión coincide, no tocar nada ──
+    if (sectores.length > 0 && storedVer === DATA_VERSION) {
+      console.log('[SEED] Datos locales v' + DATA_VERSION + ' OK — ' + sectores.length + ' sectores, ' + individuos.length + ' individuos');
       return;
     }
 
-    const url = getCfg('gs_url', '');
-    if (url) {
-      try {
-        showLoginInfo('Cargando datos desde Google Sheets…');
-        const res  = await fetch(url + '?action=load', { signal: AbortSignal.timeout(8000) });
-        const json = await res.json();
-        if (json.status === 'ok' && (json.sectores||[]).length > 0) {
-          for (const s of json.sectores)       await dbPut('sectores', s);
-          for (const i of (json.individuos||[])) {
-            const _sid = typeof i.id === 'number' ? i.id : parseInt(i.id);
-            const _nom = (i.nombre && String(i.nombre).trim() !== '' && String(i.nombre) !== 'undefined') ? String(i.nombre).trim() : null;
-            if (_sid > 0 && _nom) await dbPut('individuos', { ...i, id: _sid, nombre: _nom });
-          }
-          showLoginInfo('✅ ' + (json.individuos||[]).length + ' individuos cargados desde Sheets');
-          setTimeout(() => { const el = document.getElementById('login-info'); if(el) el.style.display='none'; }, 3000);
-          return;
-        }
-      } catch(e) {
-        console.warn('Carga desde Sheets falló, usando datos locales:', e);
-      }
-    }
-
-    // Fallback: datos iniciales hardcodeados
+    // ── Fallback: sembrar datos iniciales hardcodeados ──
+    console.log('[SEED] Sembrando datos iniciales...');
     for (const s of DATOS_INICIALES.sectores)   await dbPut('sectores', s);
     for (const i of DATOS_INICIALES.individuos) await dbPut('individuos', i);
     localStorage.setItem('data_version', DATA_VERSION);
@@ -3635,7 +3801,18 @@ async function openFichaModal(id) {
   const estadoLabel = { verde:'🟢 Bueno', amarillo:'🟡 Regular', rojo:'🔴 Crítico' }[ind.estado] || ind.estado;
 
   const fotoHtml = (ind.fotos && ind.fotos.length)
-    ? ind.fotos.map((src,idx) => `<img src="${src}" alt="foto ${idx+1}" style="width:100%;${ind.fotos.length===1?'height:180px;':'height:120px;'}object-fit:cover;${idx>0?'margin-top:2px;':''}" onclick="openFoto('${src}')" style="cursor:pointer;">`).join('')
+    ? ind.fotos.map((src,idx) => {
+        // Construir un src seguro: si es URL Drive, usarla directo; si es base64, usarla directo
+        const safeSrc = src || '';
+        const escapedSrc = safeSrc.startsWith('data:') ? safeSrc : safeSrc.replace(/'/g, "%27");
+        return `<img src="${safeSrc}" alt="foto ${idx+1}"
+          style="width:100%;${ind.fotos.length===1?'height:180px;':'height:120px;'}object-fit:cover;${idx>0?'margin-top:2px;':''}cursor:pointer;"
+          onclick="openFoto('${escapedSrc}')"
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div style="display:none;width:100%;${ind.fotos.length===1?'height:180px;':'height:120px;'}align-items:center;justify-content:center;background:#f0f0f0;color:#999;font-size:12px;border-radius:4px;">
+          📷 Foto no disponible offline
+        </div>`;
+      }).join('')
     : `<div class="ficha-foto-placeholder">🌿</div>`;
 
   const dap  = ind.dap  || '—';
@@ -3739,6 +3916,12 @@ async function openFichaModal(id) {
         <div class="ficha-coord-label">Longitud</div>
         <div class="ficha-coord-val">${lngVal}</div>
       </div>
+      ${(ind.lat && ind.lng && ind.lat !== '' && ind.lng !== '') ? `
+      <div class="ficha-coord-cell" style="grid-column:1/-1;margin-top:6px;">
+        <button onclick="closeFichaModal();verEnMapa(${parseFloat(ind.lat)},${parseFloat(ind.lng)},'${(ind.nombre||'').replace(/'/g,"\\'")}','${ind.estado}')" style="width:100%;padding:10px;background:var(--verde);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
+          📍 Ver ubicación en el mapa
+        </button>
+      </div>` : ''}
     </div>
   `;
   document.getElementById('ficha-modal-overlay').classList.add('open');
