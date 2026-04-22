@@ -727,6 +727,9 @@ body {
     </button>
     <div class="login-visitor-note" style="display:block;margin-top:8px;">Modo solo lectura · Sin necesidad de contraseña</div>
   </div>
+  <div style="margin-top:18px;text-align:center;font-size:12px;color:rgba(255,255,255,0.55);letter-spacing:0.04em;">
+    Desarrollado por: <span style="color:rgba(255,255,255,0.85);font-weight:600;">Luis Miguel Arcila</span>
+  </div>
 </div>
 
 <!-- ══════ APP ══════ -->
@@ -812,11 +815,18 @@ body {
 
     <!-- ─ MAPA ─ -->
     <div id="view-mapa" style="display:none;">
-      <div style="display:flex; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px; align-items:center;">
         <div class="section-title" style="margin:0;">Mapa de Individuos</div>
-        <select class="filter-select" id="filter-mapa-sector" onchange="renderMapa()">
-          <option value="">Todos los sectores</option>
-        </select>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <select class="filter-select" id="basemap-selector" onchange="cambiarBasemap()" title="Cambiar capa base del mapa">
+            <option value="esri">🛰 ESRI Satélite</option>
+            <option value="cartodb">🗺 CartoDB</option>
+            <option value="osm">🌐 OpenStreetMap</option>
+          </select>
+          <select class="filter-select" id="filter-mapa-sector" onchange="renderMapa()">
+            <option value="">Todos los sectores</option>
+          </select>
+        </div>
       </div>
       <div id="mapa"></div>
       <div class="mapa-leyenda">
@@ -1864,6 +1874,36 @@ function parsearCoord(val) {
   return isNaN(n) ? null : n;
 }
 
+// ── Capas base disponibles ──
+const BASEMAPS = {
+  esri: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '© Esri — World Imagery', maxZoom: 19
+  },
+  cartodb: {
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    attribution: '© CartoDB · © OpenStreetMap', maxZoom: 19
+  },
+  osm: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '© OpenStreetMap contributors', maxZoom: 19
+  }
+};
+
+let currentTileLayer = null;
+
+function cambiarBasemap() {
+  if (!mapaLeaflet) return;
+  const sel = document.getElementById('basemap-selector');
+  const key = sel ? sel.value : 'esri';
+  const cfg = BASEMAPS[key] || BASEMAPS.esri;
+  if (currentTileLayer) { mapaLeaflet.removeLayer(currentTileLayer); }
+  currentTileLayer = L.tileLayer(cfg.url, { attribution: cfg.attribution, maxZoom: cfg.maxZoom });
+  currentTileLayer.addTo(mapaLeaflet);
+  // Asegurar que la capa base quede debajo de los marcadores
+  currentTileLayer.bringToBack();
+}
+
 async function renderMapa() {
   await populateSectorFilters();
   const individuos = await dbGetAll('individuos');
@@ -1883,12 +1923,10 @@ async function renderMapa() {
 
   if (!mapaLeaflet) {
     mapaLeaflet = L.map('mapa').setView([6.2320, -75.1540], 15);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '© Esri', maxZoom: 19
-    }).addTo(mapaLeaflet);
-    // Control de capas: satélite + mapa
-    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OSM', maxZoom:19});
-    L.control.layers({'🛰 Satélite': mapaLeaflet._layers[Object.keys(mapaLeaflet._layers)[0]], '🗺 Mapa': osm}).addTo(mapaLeaflet);
+    const selKey = (document.getElementById('basemap-selector') || {}).value || 'esri';
+    const cfg = BASEMAPS[selKey] || BASEMAPS.esri;
+    currentTileLayer = L.tileLayer(cfg.url, { attribution: cfg.attribution, maxZoom: cfg.maxZoom });
+    currentTileLayer.addTo(mapaLeaflet);
   } else {
     mapaLeaflet.eachLayer(l => {
       if (l instanceof L.Marker || l instanceof L.CircleMarker) mapaLeaflet.removeLayer(l);
